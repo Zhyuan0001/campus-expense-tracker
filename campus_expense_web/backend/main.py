@@ -9,7 +9,6 @@ from typing import Optional, List
 from datetime import date, datetime
 import sqlite3
 import os
-import sys
 
 app = FastAPI(title="校园消费记账API", version="2.0")
 
@@ -194,11 +193,7 @@ class Database:
 
 
 # 全局数据库实例
-if getattr(sys, 'frozen', False):
-    _base = os.path.dirname(sys.executable)
-else:
-    _base = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-db_path = os.path.join(_base, "campus_expenses.db")
+db_path = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "campus_expenses.db")
 db = Database(db_path)
 
 

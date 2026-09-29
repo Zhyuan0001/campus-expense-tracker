@@ -13,22 +13,7 @@
 
 ## 🚀 快速开始
 
-### 便携版（推荐 - 双击即用）
-
-直接运行构建好的可执行文件，无需安装 Python 或 Node.js：
-
-```bash
-# 构建便携版（首次需要）
-./build_portable.sh
-
-# 运行
-./dist/校园消费记账系统
-```
-
-构建产物在 `dist/` 目录下，约 165MB 的单文件，可复制到任意位置运行。
-数据库文件会自动创建在可执行文件同级目录。
-
-### 开发模式
+### 1. 安装依赖
 
 ```bash
 # 安装Python依赖
@@ -37,15 +22,19 @@ pip install -r requirements.txt
 # 安装前端依赖
 cd frontend
 npm install
+```
 
+### 2. 开发模式
+
+```bash
 # 设置开发环境变量
 export DEV_MODE=1
 
 # 启动应用
-python3 app.py
+python app.py
 ```
 
-### 生产模式
+### 3. 生产模式
 
 ```bash
 # 构建前端
@@ -53,7 +42,7 @@ cd frontend
 npm run build
 
 # 启动应用
-python3 app.py
+python app.py
 ```
 
 ## 🛠️ 技术栈
@@ -72,28 +61,22 @@ python3 app.py
 
 **桌面包装**：
 - pywebview (原生窗口)
-- PyInstaller (便携版打包)
 
 ## 📁 项目结构
 
 ```
 campus_expense_web/
-├── app.py                 # 桌面应用启动器（开发模式）
-├── app_portable.py        # 便携版启动器（PyInstaller打包用）
-├── portable.spec          # PyInstaller 打包配置
-├── build_portable.sh      # 一键构建便携版脚本
+├── app.py                 # 桌面应用启动器
 ├── requirements.txt       # Python依赖
 ├── backend/
 │   ├── main.py           # FastAPI后端
-│   ├── requirements.txt
-│   └── tests/            # API测试
-├── frontend/
-│   ├── src/
-│   │   ├── components/   # Vue组件
-│   │   ├── App.vue       # 主应用
-│   │   └── main.ts       # 入口
-│   └── package.json
-└── dist/                  # 便携版可执行文件（构建产物）
+│   └── requirements.txt
+└── frontend/
+    ├── src/
+    │   ├── components/   # Vue组件
+    │   ├── App.vue       # 主应用
+    │   └── main.ts       # 入口
+    └── package.json
 ```
 
 ## 📝 功能
