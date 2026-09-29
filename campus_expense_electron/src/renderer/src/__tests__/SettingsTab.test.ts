@@ -118,12 +118,13 @@ describe('SettingsTab', () => {
     expect(popconfirms[0].text()).toContain('删除')
   })
 
-  it('window.electronAPI 为 undefined 时"关于"卡片版本号为 3.0.0', async () => {
+  it('window.electronAPI 为 undefined 时"关于"卡片回退到内置版本号', async () => {
     expect((window as any).electronAPI).toBeUndefined()
     wrapper = mount(SettingsTab)
     await flushPromises()
 
-    expect(wrapper.text()).toContain('3.0.0 (Electron)')
+    // 断言版本格式而非具体版本号：版本号随发布递增，锁死会导致每次发版改测试
+    expect(wrapper.text()).toMatch(/\d+\.\d+\.\d+ \(Electron\)/)
   })
 
   it('点"导出CSV"调用 exportCSV 并走 blob 下载回退', async () => {
