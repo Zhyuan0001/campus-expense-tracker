@@ -57,5 +57,9 @@ campus_expense_electron/resources/backend/*
 htmlcov/
 .pytest_cache/
 
+# 课程讲义等非项目资料，不属于代码仓库
+*.pptx
+*.ppt
+
 # Logs
 *.log
