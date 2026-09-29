@@ -1,0 +1,54 @@
+:root {
+  --el-color-primary: #6366F1;
+  --el-color-primary-light-3: #818CF8;
+  --el-color-primary-light-5: #A5B4FC;
+  --el-color-primary-light-7: #C7D2FE;
+  --el-color-primary-light-9: #EEF2FF;
+  --el-color-primary-dark-2: #4F46E5;
+  --el-border-radius-base: 10px;
+}
+
+html, body, #app {
+  height: 100%;
+  margin: 0;
+  padding: 0;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Microsoft YaHei UI', sans-serif;
+}
+
+html.dark {
+  --el-bg-color: #1a1a2e;
+  --el-bg-color-page: #0f0f1a;
+  --el-bg-color-overlay: #1e1e32;
+  --el-border-color: #2a2a40;
+  --el-border-color-light: #222238;
+  --el-fill-color-blank: #1a1a2e;
+  --el-text-color-primary: #e0e0e8;
+  --el-text-color-regular: #c8c8d4;
+  --el-text-color-secondary: #9090a0;
+}
+
+* {
+  transition: background-color 0.3s ease, border-color 0.3s ease, color 0.2s ease;
+}
+
+.el-card {
+  transition: box-shadow 0.3s ease, background-color 0.3s ease;
+}
+
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--el-border-color);
+  border-radius: 3px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--el-text-color-placeholder);
+}

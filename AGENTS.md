@@ -3,12 +3,24 @@
 ## 项目概述
 大学生生活费记账桌面应用。支持记录消费、分类统计（含饼图可视化）、月度分析、预算提醒、自定义分类、数据导出 CSV、亮/暗主题切换。
 
-**当前版本**：v2.0 - 现代 Web 技术栈版本（推荐）
-**历史版本**：v1.0 - PyQt5 版本（保留用于学习对比）
+**当前版本**：v3.0 - Electron 便携版（推荐）
+**历史版本**：
+- v2.0 - 现代 Web 技术栈版本（pywebview）
+- v1.0 - PyQt5 版本（保留用于学习对比）
 
 ## 技术栈
 
-### v2.0 现代 Web 版本（当前推荐）
+### v3.0 Electron 便携版（当前推荐）
+- **前端**：Vue 3 + TypeScript + Element Plus + ECharts
+- **后端**：Python 3.10+ + FastAPI（PyInstaller 打包为独立可执行文件）
+- **桌面包装**：Electron（内置 Chromium，无需安装浏览器）
+- **数据存储**：SQLite3（便携数据库，与应用同目录）
+- **构建工具**：electron-vite + Vite
+- **打包工具**：electron-builder
+- **样式方案**：Element Plus 组件库 + CSS3 动画
+- **特点**：双击即运行，无需安装 Python/Node.js，真正的便携版
+
+### v2.0 现代 Web 版本（历史版本）
 - **前端**：Vue 3 + TypeScript + Element Plus + ECharts
 - **后端**：Python 3.10+ + FastAPI
 - **桌面包装**：pywebview
@@ -25,7 +37,36 @@
 
 ## 构建与运行命令
 
-### v2.0 现代 Web 版本
+### v3.0 Electron 便携版（当前推荐）
+
+```bash
+# 1. 安装后端依赖
+cd campus_expense_web
+pip install -r requirements.txt
+
+# 2. 安装前端依赖
+cd campus_expense_electron
+npm install
+
+# 3. 开发模式运行（热重载）
+npm run dev
+
+# 4. 打包后端为独立可执行文件
+pyinstaller backend.spec --clean --noconfirm
+cp -r dist/backend/* resources/backend/
+
+# 5. 构建生产版本（Linux AppImage）
+npm run build:linux
+
+# 6. 构建生产版本（Windows 安装包）
+npm run build:win
+
+# 7. 单独运行后端 API（调试用）
+cd ../campus_expense_web/backend
+uvicorn main:app --reload --host 127.0.0.1 --port 8000
+```
+
+### v2.0 现代 Web 版本（历史版本）
 
 ```bash
 # 1. 安装后端依赖
@@ -87,7 +128,35 @@ pytest test_expense_tracker.py -v
 
 ```
 SofteareEnjineer/
-├── campus_expense_web/              # v2.0 现代 Web 版本（推荐）
+├── campus_expense_electron/          # v3.0 Electron 便携版（推荐）
+│   ├── package.json                  # Electron 项目配置
+│   ├── electron.vite.config.ts       # electron-vite 构建配置
+│   ├── backend.spec                  # PyInstaller 打包配置
+│   ├── resources/
+│   │   └── backend/                  # 打包后的后端可执行文件
+│   ├── src/
+│   │   ├── main/
+│   │   │   └── index.ts              # Electron 主进程（后端生命周期管理）
+│   │   ├── preload/
+│   │   │   └── index.ts              # 预加载脚本
+│   │   └── renderer/
+│   │       ├── index.html            # 前端入口
+│   │       └── src/
+│   │           ├── main.ts           # Vue3 入口
+│   │           ├── App.vue           # 主应用组件
+│   │           ├── style.css         # 全局样式（Indigo主题）
+│   │           ├── api/
+│   │           │   └── index.ts      # 统一 API 层
+│   │           └── components/
+│   │               ├── DashboardTab.vue  # 仪表盘（新增）
+│   │               ├── ExpenseTab.vue    # 记账 Tab
+│   │               ├── RecordsTab.vue    # 记录 Tab
+│   │               ├── StatisticsTab.vue # 统计 Tab
+│   │               ├── BudgetTab.vue     # 预算 Tab
+│   │               └── SettingsTab.vue   # 设置 Tab
+│   └── dist/                         # 构建输出（electron-builder）
+│
+├── campus_expense_web/              # v2.0 现代 Web 版本（历史）
 │   ├── app.py                       # pywebview 桌面启动器
 │   ├── requirements.txt             # Python 依赖
 │   ├── README.md                    # 项目说明
@@ -199,5 +268,6 @@ v2.0 版本支持：
 
 ## 版本演进路线
 - v1.0（已完成）：PyQt5 单文件版本
-- v2.0（已完成）：现代 Web 技术栈版本
-- v3.0（计划中）：添加 Tauri 打包、移动端适配
+- v2.0（已完成）：现代 Web 技术栈版本（pywebview）
+- v3.0（已完成）：Electron 便携版，PyInstaller 打包后端，真正的双击即运行
+- v4.0（计划中）：移动端适配、云同步

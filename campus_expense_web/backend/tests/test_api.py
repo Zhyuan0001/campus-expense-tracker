@@ -3,34 +3,32 @@ FastAPI 后端 API 测试
 """
 import pytest
 from fastapi.testclient import TestClient
-from main import app
+import main
 import os
 import tempfile
-import time
 import uuid
 
 
 @pytest.fixture
 def client():
     """创建测试客户端，使用临时数据库"""
-    # 创建临时数据库文件
     temp_db = tempfile.NamedTemporaryFile(delete=False, suffix='.db')
     temp_db.close()
-    
-    # 设置环境变量使用临时数据库
-    os.environ['TEST_DB_PATH'] = temp_db.name
-    
-    with TestClient(app) as c:
+
+    original_db = main.db
+    main.db = main.Database(temp_db.name)
+
+    with TestClient(main.app) as c:
         yield c
-    
-    # 清理临时数据库
+
+    main.db.close()
+    main.db = original_db
+
     if os.path.exists(temp_db.name):
         try:
             os.unlink(temp_db.name)
-        except:
+        except OSError:
             pass
-    if 'TEST_DB_PATH' in os.environ:
-        del os.environ['TEST_DB_PATH']
 
 
 class TestExpensesAPI:

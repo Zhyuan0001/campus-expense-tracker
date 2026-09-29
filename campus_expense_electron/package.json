@@ -1,0 +1,62 @@
+{
+  "name": "campus-expense-electron",
+  "version": "3.0.0",
+  "description": "校园消费记账系统 - Electron桌面版",
+  "main": "./out/main/index.js",
+  "author": "campus-expense-team",
+  "license": "MIT",
+  "scripts": {
+    "dev": "electron-vite dev",
+    "build": "electron-vite build",
+    "preview": "electron-vite preview",
+    "postinstall": "electron-builder install-app-deps",
+    "build:linux": "electron-vite build && electron-builder --linux",
+    "build:win": "electron-vite build && electron-builder --win",
+    "typecheck:node": "tsc --noEmit -p tsconfig.node.json",
+    "typecheck:web": "vue-tsc --noEmit -p tsconfig.web.json",
+    "typecheck": "npm run typecheck:node && npm run typecheck:web"
+  },
+  "dependencies": {
+    "@element-plus/icons-vue": "^2.3.2",
+    "axios": "^1.20.0",
+    "echarts": "^6.1.0",
+    "element-plus": "^2.14.6",
+    "vue": "^3.5.42"
+  },
+  "devDependencies": {
+    "@electron-toolkit/preload": "^3.0.1",
+    "@electron-toolkit/utils": "^3.0.0",
+    "@vitejs/plugin-vue": "^5.0.0",
+    "electron": "^33.2.1",
+    "electron-builder": "^25.1.8",
+    "electron-vite": "^2.3.0",
+    "typescript": "~5.6.0",
+    "vite": "^5.0.0",
+    "vue-tsc": "^2.1.10"
+  },
+  "build": {
+    "appId": "com.campus.expense-tracker",
+    "productName": "校园消费记账",
+    "directories": {
+      "output": "dist"
+    },
+    "extraResources": [
+      {
+        "from": "resources/backend",
+        "to": "backend",
+        "filter": ["**/*"]
+      }
+    ],
+    "linux": {
+      "target": ["AppImage"],
+      "category": "Office"
+    },
+    "win": {
+      "target": ["portable", "nsis"]
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true
+    }
+  }
+}

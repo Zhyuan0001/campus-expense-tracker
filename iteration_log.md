@@ -165,3 +165,73 @@ F8 主题切换：亮色/暗色两套主题
 | ② ≥2轮迭代记录 | ✅ | 完成 3 轮迭代（初版 + 2 轮修改） |
 | ③ ≥1次验证说明 | ✅ | 单元测试 36 个 + GUI 功能验证 + 边界测试 |
 | ④ 1条心得 | ✅ | 已记录惊喜与失望，附反思总结 |
+
+## v3.0 Electron 便携版 - 2026-09-29
+
+### 核心改进
+- **桌面框架**：从 pywebview 迁移到 Electron，内置 Chromium，更好的兼容性和性能
+- **后端打包**：PyInstaller 将 FastAPI 后端打包为独立可执行文件，无需安装 Python
+- **便携特性**：真正的双击即运行，哪里解压哪里运行，数据库随应用走
+- **新增仪表盘**：Dashboard 首页，统计卡片 + 饼图 + 折线图 + 最近记录
+- **统一 API 层**：消除 5 个组件中重复的 API_BASE 硬编码
+- **Indigo 主题**：#6366F1 主色调，10px 圆角，现代化视觉
+- **修复分页**：RecordsTab 从假分页改为客户端计算分页
+
+### 技术架构
+- 三层架构：Main（后端生命周期）+ Preload（安全桥接）+ Renderer（Vue3）
+- 健康检查：TCP socket 轮询 `/api/health`，确保后端就绪再创建窗口
+- 数据库路径：开发模式用项目目录，生产模式用用户数据目录
+- 安全配置：contextIsolation=true, nodeIntegration=false, sandbox
+
+### 构建流程
+1. PyInstaller 打包后端 → `resources/backend/backend`
+2. electron-vite 构建前端
+3. electron-builder 打包为 AppImage（Linux）或 NSIS（Windows）
+
+### 文件变更
+- 新增：`campus_expense_electron/` 完整 Electron 项目
+- 修改：`campus_expense_web/backend/main.py`（健康检查、lifespan、可配置 DB 路径）
+- 修改：`campus_expense_web/backend/tests/test_api.py`（修复测试隔离）
+- 更新：`AGENTS.md`（v3.0 文档）
+- 新增：`campus_expense_electron/README.md`
+
+### 测试验证
+- 后端 API 测试：19/19 通过，95% 覆盖率
+- Electron 开发模式：启动成功，所有 API 端点正常响应
+- PyInstaller 打包：后端可执行文件独立运行成功
+
+---
+
+## v3.0 质量迭代（Round 1-4）- 2026-09-29
+
+### Round 1: 关键视觉和交互修复
+- **DashboardTab**：添加 v-loading 加载状态；stat card 添加 `min-width:0` + `text-overflow` 防溢出；错误处理从静默改为 ElMessage.error
+- **StatisticsTab/BudgetTab/RecordsTab**：标题添加 `white-space: nowrap` 防截断；BudgetTab 添加 loading 状态和错误提示
+- **SettingsTab**：CSV 导出文件名添加日期后缀 `campus_expenses_2026-09-29.csv`；导出按钮添加 loading 状态
+- **App.vue**：componentMap 类型从 `Record<string, any>` 改为 `Record<string, Component>`；fallback 到 DashboardTab
+
+### Round 2: 代码质量和性能优化
+- **共享常量**：提取 `CATEGORY_COLORS`、`CATEGORY_ICON_MAP`、`getCategoryIcon()`、`isDarkMode()`、`getChartTextColor()`、`getChartBorderColor()` 到 `utils/constants.ts`，消除 6 个组件中的重复代码
+- **Dashboard 趋势数据**：6 次串行 API 调用改为 `Promise.all` 并行加载，加载速度提升约 5 倍
+- **ECharts 暗色模式**：所有图表（饼图、折线图）的边框色、文字色根据主题动态切换
+- **API 层清理**：移除未使用的 `healthCheck()` 方法
+
+### Round 3: 后端 API 增强
+- **created_at 一致性**：`add_expense` 改为由 Python 生成时间戳并写入 DB，API 响应与 DB 存储一致
+- **description 校验**：添加 `max_length=200` 限制
+- **预算原子操作**：`set_budget` 从 DELETE+INSERT 改为 `INSERT OR REPLACE`，避免竞态条件
+- **月份校验**：`get_expenses` 添加月份范围校验（1-12）
+- **CORS 修复**：`allow_credentials` 改为 `False`（与 `allow_origins=["*"]` 不冲突）
+- **CSV 导出**：临时文件名添加日期避免冲突
+
+### Round 4: UI 打磨和细节完善
+- **全局样式增强**：`style.css` 添加暗色模式文字色变量、`*` 选择器主题过渡动画、自定义滚动条样式
+- **响应式布局**：Dashboard 统计卡片 4→2→1 列自适应；图表行 2→1 列；Budget 统计卡 3→1 列
+- **侧边栏交互**：菜单项添加 hover 效果、transition 动画
+- **ExpenseTab**：`loadMonthlyStats` 改为 Promise.all 并行加载
+
+### 验证结果
+- `electron-vite build` 编译成功，2259 模块无错误
+- Electron dev 模式启动正常，后端自动 spawn
+- 所有 API 端点返回 200 OK
+- 趋势数据并行加载验证：6 个月统计同时请求完成
