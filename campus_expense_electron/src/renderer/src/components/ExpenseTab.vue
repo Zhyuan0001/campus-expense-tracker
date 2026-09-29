@@ -101,6 +101,7 @@ import { ref, onMounted } from 'vue'
 import { Plus, Check, DataLine } from '@element-plus/icons-vue'
 import { ElMessage, type FormInstance, type FormRules } from 'element-plus'
 import { api } from '@/api'
+import { todayLocal } from '@/utils/constants'
 
 const formRef = ref<FormInstance>()
 const categories = ref<{ id: number; name: string; icon: string }[]>([])
@@ -109,10 +110,12 @@ const monthlyTotal = ref(0)
 const recordCount = ref(0)
 
 const form = ref({
-  amount: 0,
+  // 初始为 undefined 而不是 0：el-input-number 会把 0 钳到 min=0.01，
+  // 用户不填金额直接保存会静默记一笔 ¥0.01，而设计要求弹警告不写入
+  amount: undefined as number | undefined,
   category: '',
   description: '',
-  date: new Date().toISOString().split('T')[0]
+  date: todayLocal()
 })
 
 const rules: FormRules = {
@@ -159,14 +162,17 @@ const submitForm = async (): Promise<void> => {
 
     submitting.value = true
     try {
-      await api.createExpense(form.value)
+      // el-input-number 内部存在 float32 精度残渣（如 0.009999999776482582），
+      // 提交前统一保留两位小数
+      const amount = Number((form.value.amount ?? 0).toFixed(2))
+      await api.createExpense({ ...form.value, amount })
       ElMessage.success('记录保存成功')
 
       form.value = {
-        amount: 0,
+        amount: undefined,
         category: '',
         description: '',
-        date: new Date().toISOString().split('T')[0]
+        date: todayLocal()
       }
       formRef.value?.resetFields()
 

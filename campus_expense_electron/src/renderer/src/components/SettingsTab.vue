@@ -3,6 +3,28 @@
     <el-card shadow="hover" class="settings-card">
       <template #header>
         <div class="card-header">
+          <el-icon :size="20"><Brush /></el-icon>
+          <h2>外观</h2>
+        </div>
+      </template>
+
+      <div class="theme-section">
+        <div class="theme-info">
+          <div class="theme-label">暗色主题</div>
+          <div class="theme-desc">切换后立即生效，重启应用后保持所选主题</div>
+        </div>
+        <el-switch
+          :model-value="isDark"
+          :active-action-icon="Moon"
+          :inactive-action-icon="Sunny"
+          @change="toggleTheme"
+        />
+      </div>
+    </el-card>
+
+    <el-card shadow="hover" class="settings-card">
+      <template #header>
+        <div class="card-header">
           <el-icon :size="20"><Setting /></el-icon>
           <h2>分类管理</h2>
         </div>
@@ -96,7 +118,7 @@
       <div class="about-section">
         <el-descriptions :column="1" border>
           <el-descriptions-item label="应用名称">校园消费记账系统</el-descriptions-item>
-          <el-descriptions-item label="版本">3.0 (Electron)</el-descriptions-item>
+          <el-descriptions-item label="版本">{{ appVersion }} (Electron)</el-descriptions-item>
           <el-descriptions-item label="技术栈">Electron + Vue3 + TypeScript + Element Plus + FastAPI</el-descriptions-item>
           <el-descriptions-item label="特点">
             <el-tag type="success">便携版</el-tag>
@@ -112,10 +134,14 @@
 
 <script setup lang="ts">
 import { ref, onMounted } from 'vue'
-import { Setting, Delete, Download, InfoFilled } from '@element-plus/icons-vue'
+import { Setting, Delete, Download, InfoFilled, Brush, Moon, Sunny } from '@element-plus/icons-vue'
 import { ElMessage } from 'element-plus'
 import { api, type Category } from '@/api'
+import { useTheme } from '@/composables/useTheme'
+import { todayLocal } from '@/utils/constants'
 
+const { isDark, toggleTheme } = useTheme()
+const appVersion = ref('3.0.1')
 const categories = ref<Category[]>([])
 const adding = ref(false)
 const exporting = ref(false)
@@ -166,11 +192,21 @@ const exportData = async (): Promise<void> => {
   exporting.value = true
   try {
     const res = await api.exportCSV()
+    const defaultName = `campus_expenses_${todayLocal()}.csv`
+
+    // Electron 下走原生"另存为"对话框让用户选路径；
+    // 浏览器/单元测试环境没有 IPC，回退到 blob 下载
+    if (window.electronAPI?.saveCsv) {
+      const content = await new Blob([res.data]).text()
+      const savedPath = await window.electronAPI.saveCsv(content, defaultName)
+      if (savedPath) ElMessage.success(`已导出到 ${savedPath}`)
+      return
+    }
+
     const url = window.URL.createObjectURL(new Blob([res.data]))
     const link = document.createElement('a')
     link.href = url
-    const today = new Date().toISOString().split('T')[0]
-    link.setAttribute('download', `campus_expenses_${today}.csv`)
+    link.setAttribute('download', defaultName)
     document.body.appendChild(link)
     link.click()
     link.remove()
@@ -183,8 +219,10 @@ const exportData = async (): Promise<void> => {
   }
 }
 
-onMounted(() => {
+onMounted(async () => {
   loadCategories()
+  const version = await window.electronAPI?.getAppVersion()
+  if (version) appVersion.value = version
 })
 </script>
 
@@ -195,6 +233,26 @@ onMounted(() => {
   display: flex;
   flex-direction: column;
   gap: 20px;
+}
+
+.theme-section {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20px;
+  padding: 12px 0;
+}
+
+.theme-label {
+  font-size: 15px;
+  font-weight: 500;
+  color: var(--el-text-color-primary);
+  margin-bottom: 4px;
+}
+
+.theme-desc {
+  font-size: 13px;
+  color: var(--el-text-color-secondary);
 }
 
 .card-header {

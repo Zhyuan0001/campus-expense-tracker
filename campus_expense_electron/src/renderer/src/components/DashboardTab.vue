@@ -20,7 +20,7 @@
           <div class="stat-info">
             <div class="stat-label">剩余预算</div>
             <div class="stat-value" :style="{ color: remainingColor }">
-              ¥{{ budgetRemaining.toFixed(2) }}
+              {{ hasBudget ? `¥${budgetRemaining.toFixed(2)}` : '未设置' }}
             </div>
           </div>
         </div>
@@ -114,6 +114,8 @@ import {
 const loading = ref(false)
 const monthlyTotal = ref(0)
 const budgetRemaining = ref(0)
+const budgetPercentage = ref(0)
+const hasBudget = ref(false)
 const recordCount = ref(0)
 const categoryData = ref<CategoryStat[]>([])
 const trendData = ref<{ month: string; total: number }[]>([])
@@ -129,9 +131,11 @@ const dailyAvg = computed(() => {
   return day > 0 ? monthlyTotal.value / day : 0
 })
 
+// 与预算页共用同一套阈值：<80% 绿、80%-100% 黄、>100% 红
 const remainingColor = computed(() => {
-  if (budgetRemaining.value < 0) return 'var(--el-color-danger)'
-  if (budgetRemaining.value < 200) return 'var(--el-color-warning)'
+  if (!hasBudget.value) return 'var(--el-text-color-secondary)'
+  if (budgetPercentage.value > 100) return 'var(--el-color-danger)'
+  if (budgetPercentage.value >= 80) return 'var(--el-color-warning)'
   return 'var(--el-color-success)'
 })
 
@@ -201,6 +205,8 @@ const loadData = async (): Promise<void> => {
     monthlyTotal.value = statsRes.data.total
     categoryData.value = statsRes.data.categories
     budgetRemaining.value = budgetRes.data.remaining
+    budgetPercentage.value = budgetRes.data.percentage
+    hasBudget.value = budgetRes.data.monthly_budget !== null
     recordCount.value = expensesRes.data.length
     recentExpenses.value = expensesRes.data.slice(0, 5)
   } catch {

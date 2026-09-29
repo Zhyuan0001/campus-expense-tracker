@@ -24,6 +24,7 @@
         v-loading="loading"
         empty-text="暂无记录"
       >
+        <el-table-column prop="id" label="ID" width="80" />
         <el-table-column prop="date" label="日期" width="120" />
         <el-table-column prop="category" label="分类" min-width="120">
           <template #default="{ row }">
@@ -69,11 +70,10 @@
 import { ref, computed, watch, onMounted } from 'vue'
 import { Document, Delete } from '@element-plus/icons-vue'
 import { ElMessage } from 'element-plus'
-import { api, type Expense, type Category } from '@/api'
+import { api, type Expense } from '@/api'
 import { getCategoryIcon } from '@/utils/constants'
 
 const expenses = ref<Expense[]>([])
-const categories = ref<Category[]>([])
 const loading = ref(false)
 const filterDate = ref('')
 const currentPage = ref(1)
@@ -102,15 +102,6 @@ const loadExpenses = async (): Promise<void> => {
   }
 }
 
-const loadCategories = async (): Promise<void> => {
-  try {
-    const res = await api.getCategories()
-    categories.value = res.data
-  } catch {
-    console.error('加载分类失败')
-  }
-}
-
 const deleteExpense = async (id: number): Promise<void> => {
   try {
     await api.deleteExpense(id)
@@ -128,7 +119,6 @@ watch(filterDate, () => {
 
 onMounted(() => {
   loadExpenses()
-  loadCategories()
 })
 </script>
 

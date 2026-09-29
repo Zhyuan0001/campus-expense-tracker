@@ -35,14 +35,6 @@
           <span>设置</span>
         </el-menu-item>
       </el-menu>
-      <div class="theme-switch">
-        <el-switch
-          v-model="isDark"
-          :active-action-icon="Moon"
-          :inactive-action-icon="Sunny"
-          @change="toggleTheme"
-        />
-      </div>
     </el-aside>
 
     <el-main class="main-content">
@@ -57,7 +49,7 @@
 import { ref, shallowRef, onMounted, type Component } from 'vue'
 import {
   Wallet, Plus, Document, DataAnalysis, TrendCharts,
-  Setting, Moon, Sunny, HomeFilled
+  Setting, HomeFilled
 } from '@element-plus/icons-vue'
 import DashboardTab from './components/DashboardTab.vue'
 import ExpenseTab from './components/ExpenseTab.vue'
@@ -65,10 +57,11 @@ import RecordsTab from './components/RecordsTab.vue'
 import StatisticsTab from './components/StatisticsTab.vue'
 import BudgetTab from './components/BudgetTab.vue'
 import SettingsTab from './components/SettingsTab.vue'
+import { useTheme } from './composables/useTheme'
 
 const activeTab = ref('dashboard')
-const isDark = ref(false)
-const currentComponent = shallowRef< Component>(DashboardTab)
+const currentComponent = shallowRef<Component>(DashboardTab)
+const { initTheme } = useTheme()
 
 const componentMap: Record<string, Component> = {
   dashboard: DashboardTab,
@@ -84,15 +77,8 @@ const handleSelect = (index: string): void => {
   currentComponent.value = componentMap[index] ?? DashboardTab
 }
 
-const toggleTheme = (): void => {
-  document.documentElement.classList.toggle('dark', isDark.value)
-  localStorage.setItem('theme', isDark.value ? 'dark' : 'light')
-}
-
 onMounted(() => {
-  const savedTheme = localStorage.getItem('theme')
-  isDark.value = savedTheme === 'dark'
-  document.documentElement.classList.toggle('dark', isDark.value)
+  initTheme()
 })
 </script>
 
@@ -148,13 +134,6 @@ onMounted(() => {
 
 .sidebar-menu .el-menu-item:hover {
   background: var(--el-color-primary-light-9);
-}
-
-.theme-switch {
-  padding: 12px;
-  border-top: 1px solid var(--el-border-color-light);
-  display: flex;
-  justify-content: center;
 }
 
 .main-content {

@@ -83,7 +83,7 @@
             style="margin-top: 20px"
           />
           <el-alert
-            v-else-if="budgetData.percentage > 80"
+            v-else-if="budgetData.percentage >= 80"
             title="预算使用提醒"
             type="warning"
             :description="`已使用 ${budgetData.percentage.toFixed(1)}%，剩余 ¥${budgetData.remaining.toFixed(2)}`"
@@ -126,7 +126,7 @@ const saving = ref(false)
 
 const progressColor = computed(() => {
   if (budgetData.value.percentage > 100) return '#f56c6c'
-  if (budgetData.value.percentage > 80) return '#e6a23c'
+  if (budgetData.value.percentage >= 80) return '#e6a23c'
   return '#67c23a'
 })
 
@@ -134,7 +134,7 @@ const remainingColor = computed(() => {
   if (budgetData.value.remaining < 0) {
     return { bg: 'var(--el-color-danger-light-9)', icon: 'var(--el-color-danger)' }
   }
-  if (budgetData.value.percentage > 80) {
+  if (budgetData.value.percentage >= 80) {
     return { bg: 'var(--el-color-warning-light-9)', icon: 'var(--el-color-warning)' }
   }
   return { bg: 'var(--el-color-success-light-9)', icon: 'var(--el-color-success)' }

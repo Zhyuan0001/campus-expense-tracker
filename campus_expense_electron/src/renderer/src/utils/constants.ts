@@ -25,3 +25,15 @@ export function getChartTextColor(): string {
 export function getChartBorderColor(): string {
   return isDarkMode() ? '#1e1e32' : '#fff'
 }
+
+// toISOString() 返回的是 UTC 日期：东八区凌晨 0-8 点会得到"昨天"，
+// 记账默认日期、统计默认月份都会错位一天/一个月，必须用本地时间
+export function todayLocal(): string {
+  const d = new Date()
+  const pad = (n: number): string => String(n).padStart(2, '0')
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`
+}
+
+export function thisMonthLocal(): string {
+  return todayLocal().slice(0, 7)
+}

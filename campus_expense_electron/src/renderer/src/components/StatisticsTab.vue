@@ -57,16 +57,15 @@ import { ref, watch, onMounted, onBeforeUnmount, nextTick } from 'vue'
 import { DataAnalysis } from '@element-plus/icons-vue'
 import { ElMessage } from 'element-plus'
 import * as echarts from 'echarts'
-import { api, type CategoryStat, type Category } from '@/api'
+import { api, type CategoryStat } from '@/api'
 import {
-  CATEGORY_COLORS, getCategoryIcon, getChartTextColor, getChartBorderColor
+  CATEGORY_COLORS, getCategoryIcon, getChartTextColor, getChartBorderColor, thisMonthLocal
 } from '@/utils/constants'
 
-const selectedMonth = ref(new Date().toISOString().slice(0, 7))
+const selectedMonth = ref(thisMonthLocal())
 const loading = ref(false)
 const total = ref(0)
 const categoryData = ref<CategoryStat[]>([])
-const categories = ref<Category[]>([])
 const chartRef = ref<HTMLElement>()
 let chart: echarts.ECharts | null = null
 
@@ -87,15 +86,6 @@ const loadStatistics = async (): Promise<void> => {
     ElMessage.error('加载统计失败')
   } finally {
     loading.value = false
-  }
-}
-
-const loadCategories = async (): Promise<void> => {
-  try {
-    const res = await api.getCategories()
-    categories.value = res.data
-  } catch {
-    console.error('加载分类失败')
   }
 }
 
@@ -151,7 +141,6 @@ watch(selectedMonth, () => {
 })
 
 onMounted(async () => {
-  await loadCategories()
   await loadStatistics()
   window.addEventListener('resize', handleResize)
 })
@@ -203,7 +192,7 @@ onBeforeUnmount(() => {
 .total-amount {
   font-size: 38px;
   font-weight: 700;
-  color: var(--el-color-primary);
+  color: var(--el-color-danger);
 }
 
 .chart-container {
