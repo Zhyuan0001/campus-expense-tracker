@@ -46,5 +46,16 @@ target/
 dist/
 .tauri/
 
+# Electron 便携版：后端打包产物与构建输出（体积大且平台相关，由 CI 重新生成）
+campus_expense_electron/out/
+campus_expense_electron/resources/backend/*
+!campus_expense_electron/resources/backend/.gitkeep
+
+# 测试与覆盖率产物
+.coverage
+.coverage.*
+htmlcov/
+.pytest_cache/
+
 # Logs
 *.log

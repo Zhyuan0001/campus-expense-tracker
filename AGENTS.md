@@ -43,6 +43,7 @@
 # 1. 安装后端依赖
 cd campus_expense_web
 pip install -r requirements.txt
+pip install pyinstaller
 
 # 2. 安装前端依赖
 cd campus_expense_electron
@@ -52,6 +53,8 @@ npm install
 npm run dev
 
 # 4. 打包后端为独立可执行文件
+#    必须在 campus_expense_electron 下执行：backend.spec 里的源码路径是
+#    ../campus_expense_web/backend/main.py，相对于该目录解析
 pyinstaller backend.spec --clean --noconfirm
 cp -r dist/backend/* resources/backend/
 
@@ -59,12 +62,25 @@ cp -r dist/backend/* resources/backend/
 npm run build:linux
 
 # 6. 构建生产版本（Windows 安装包）
+#    PyInstaller 不支持交叉编译，Linux 上无法产出 Windows exe，
+#    需用 GitHub Actions（见下）或在 Windows 上执行
 npm run build:win
 
 # 7. 单独运行后端 API（调试用）
 cd ../campus_expense_web/backend
 uvicorn main:app --reload --host 127.0.0.1 --port 8000
 ```
+
+**Windows exe 自动构建**：推送 `v*` 标签触发 `.github/workflows/build-windows.yml`，
+产出便携版与 NSIS 安装包并挂到 Release；也可在 Actions 页面手动触发（workflow_dispatch）。
+
+```bash
+git push origin master
+git tag v3.0.0 && git push origin v3.0.0
+```
+
+`resources/backend/` 与 `out/` 已 gitignore（体积大且平台相关），由 CI 重新生成。
+详见 `WINDOWS_BUILD_GUIDE.md`。
 
 ### v2.0 现代 Web 版本（历史版本）
 
@@ -131,9 +147,9 @@ SofteareEnjineer/
 ├── campus_expense_electron/          # v3.0 Electron 便携版（推荐）
 │   ├── package.json                  # Electron 项目配置
 │   ├── electron.vite.config.ts       # electron-vite 构建配置
-│   ├── backend.spec                  # PyInstaller 打包配置
+│   ├── backend.spec                  # PyInstaller 打包配置（路径相对于本目录）
 │   ├── resources/
-│   │   └── backend/                  # 打包后的后端可执行文件
+│   │   └── backend/                  # 打包后的后端可执行文件（gitignore，CI 生成）
 │   ├── src/
 │   │   ├── main/
 │   │   │   └── index.ts              # Electron 主进程（后端生命周期管理）
@@ -179,9 +195,15 @@ SofteareEnjineer/
 │
 ├── campus_expense_tracker.py        # v1.0 PyQt5 版本（历史）
 ├── test_expense_tracker.py          # v1.0 单元测试
+├── .github/
+│   └── workflows/
+│       └── build-windows.yml        # 推 v* 标签时构建 Windows exe 并发布 Release
 ├── DESIGN.md                        # 设计文档
 ├── AGENTS.md                        # 本文件
 ├── iteration_log.md                 # 迭代记录
+├── PLAN.md                          # 迭代计划
+├── PPT_PREPARATION.md               # 答辩材料
+├── WINDOWS_BUILD_GUIDE.md           # Windows 构建指南（CI + 本地）
 └── .gitignore
 ```
 
