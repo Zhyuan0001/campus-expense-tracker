@@ -128,7 +128,7 @@ const budgetData = ref<BudgetData>({
   monthly_budget: null,
   spent: 0,
   remaining: 0,
-  percentage: 0
+  percentage: 0,
 })
 const saving = ref(false)
 

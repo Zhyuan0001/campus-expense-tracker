@@ -82,15 +82,15 @@ let chart: echarts.ECharts | null = null
 
 const loadStatistics = async () => {
   if (!selectedMonth.value) return
-  
+
   loading.value = true
   try {
     const [year, month] = selectedMonth.value.split('-').map(Number)
     const res = await axios.get(`${API_BASE}/statistics/${year}/${month}`)
-    
+
     total.value = res.data.total
     categoryData.value = res.data.categories
-    
+
     await nextTick()
     renderChart()
   } catch (error) {
@@ -110,7 +110,7 @@ const loadCategories = async () => {
 }
 
 const getCategoryIcon = (categoryName: string) => {
-  const cat = categories.value.find(c => c.name === categoryName)
+  const cat = categories.value.find((c) => c.name === categoryName)
   return cat ? cat.icon : '📌'
 }
 
@@ -122,19 +122,25 @@ const renderChart = () => {
   }
 
   const colors = [
-    '#5470c6', '#91cc75', '#fac858', '#ee6666', 
-    '#73c0de', '#3ba272', '#fc8452', '#9a60b4'
+    '#5470c6',
+    '#91cc75',
+    '#fac858',
+    '#ee6666',
+    '#73c0de',
+    '#3ba272',
+    '#fc8452',
+    '#9a60b4',
   ]
 
   const option: echarts.EChartsOption = {
     tooltip: {
       trigger: 'item',
-      formatter: '{b}: ¥{c} ({d}%)'
+      formatter: '{b}: ¥{c} ({d}%)',
     },
     legend: {
       orient: 'vertical',
       right: '5%',
-      top: 'center'
+      top: 'center',
     },
     series: [
       {
@@ -146,27 +152,27 @@ const renderChart = () => {
         itemStyle: {
           borderRadius: 8,
           borderColor: 'var(--el-bg-color)',
-          borderWidth: 2
+          borderWidth: 2,
         },
         label: {
-          show: false
+          show: false,
         },
         emphasis: {
           label: {
             show: true,
             fontSize: 16,
-            fontWeight: 'bold'
-          }
+            fontWeight: 'bold',
+          },
         },
         data: categoryData.value.map((item, index) => ({
           value: item.total,
           name: item.category,
           itemStyle: {
-            color: colors[index % colors.length]
-          }
-        }))
-      }
-    ]
+            color: colors[index % colors.length],
+          },
+        })),
+      },
+    ],
   }
 
   chart.setOption(option)
@@ -179,7 +185,7 @@ watch(selectedMonth, () => {
 onMounted(async () => {
   await loadCategories()
   await loadStatistics()
-  
+
   window.addEventListener('resize', () => {
     chart?.resize()
   })
@@ -211,7 +217,11 @@ onMounted(async () => {
 .total-card {
   text-align: center;
   padding: 32px;
-  background: linear-gradient(135deg, var(--el-color-primary-light-9) 0%, var(--el-color-primary-light-7) 100%);
+  background: linear-gradient(
+    135deg,
+    var(--el-color-primary-light-9) 0%,
+    var(--el-color-primary-light-7) 100%
+  );
   border-radius: 12px;
   margin-bottom: 32px;
 }

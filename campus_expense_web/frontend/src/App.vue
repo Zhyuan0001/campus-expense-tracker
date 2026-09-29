@@ -6,11 +6,7 @@
         <el-icon :size="32"><Wallet /></el-icon>
         <h2>校园记账</h2>
       </div>
-      <el-menu
-        :default-active="activeTab"
-        class="sidebar-menu"
-        @select="handleSelect"
-      >
+      <el-menu :default-active="activeTab" class="sidebar-menu" @select="handleSelect">
         <el-menu-item index="expense">
           <el-icon><Plus /></el-icon>
           <span>记账</span>
@@ -53,7 +49,16 @@
 
 <script setup lang="ts">
 import { ref, shallowRef, onMounted } from 'vue'
-import { Wallet, Plus, Document, DataAnalysis, TrendCharts, Setting, Moon, Sunny } from '@element-plus/icons-vue'
+import {
+  Wallet,
+  Plus,
+  Document,
+  DataAnalysis,
+  TrendCharts,
+  Setting,
+  Moon,
+  Sunny,
+} from '@element-plus/icons-vue'
 import ExpenseTab from './components/ExpenseTab.vue'
 import RecordsTab from './components/RecordsTab.vue'
 import StatisticsTab from './components/StatisticsTab.vue'
@@ -70,7 +75,7 @@ const componentMap: Record<string, any> = {
   records: RecordsTab,
   statistics: StatisticsTab,
   budget: BudgetTab,
-  settings: SettingsTab
+  settings: SettingsTab,
 }
 
 const handleSelect = (index: string) => {
@@ -97,7 +102,9 @@ onMounted(() => {
   box-sizing: border-box;
 }
 
-html, body, #app {
+html,
+body,
+#app {
   height: 100%;
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Microsoft YaHei UI', sans-serif;
 }

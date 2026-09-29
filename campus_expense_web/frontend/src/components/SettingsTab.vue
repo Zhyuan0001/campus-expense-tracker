@@ -19,16 +19,10 @@
             />
           </el-form-item>
           <el-form-item label="图标">
-            <el-input
-              v-model="newCategory.icon"
-              placeholder="Emoji图标"
-              style="width: 100px"
-            />
+            <el-input v-model="newCategory.icon" placeholder="Emoji图标" style="width: 100px" />
           </el-form-item>
           <el-form-item>
-            <el-button type="primary" @click="addCategory" :loading="adding">
-              添加分类
-            </el-button>
+            <el-button type="primary" @click="addCategory" :loading="adding"> 添加分类 </el-button>
           </el-form-item>
         </el-form>
 
@@ -97,7 +91,9 @@
         <el-descriptions :column="1" border>
           <el-descriptions-item label="应用名称">校园消费记账系统</el-descriptions-item>
           <el-descriptions-item label="版本">2.0 (Modern Web)</el-descriptions-item>
-          <el-descriptions-item label="技术栈">Vue3 + TypeScript + Element Plus + FastAPI</el-descriptions-item>
+          <el-descriptions-item label="技术栈"
+            >Vue3 + TypeScript + Element Plus + FastAPI</el-descriptions-item
+          >
           <el-descriptions-item label="特点">
             <el-tag type="success">现代化UI</el-tag>
             <el-tag type="success">高DPI支持</el-tag>
@@ -128,7 +124,7 @@ const categories = ref<Category[]>([])
 const adding = ref(false)
 const newCategory = ref({
   name: '',
-  icon: '📌'
+  icon: '📌',
 })
 
 const loadCategories = async () => {

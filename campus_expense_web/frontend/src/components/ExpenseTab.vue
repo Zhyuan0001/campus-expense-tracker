@@ -121,20 +121,16 @@ const form = ref({
   amount: 0,
   category: '',
   description: '',
-  date: new Date().toISOString().split('T')[0]
+  date: new Date().toISOString().split('T')[0],
 })
 
 const rules: FormRules = {
   amount: [
     { required: true, message: '请输入金额', trigger: 'blur' },
-    { type: 'number', min: 0.01, message: '金额必须大于0', trigger: 'blur' }
+    { type: 'number', min: 0.01, message: '金额必须大于0', trigger: 'blur' },
   ],
-  category: [
-    { required: true, message: '请选择分类', trigger: 'change' }
-  ],
-  date: [
-    { required: true, message: '请选择日期', trigger: 'change' }
-  ]
+  category: [{ required: true, message: '请选择分类', trigger: 'change' }],
+  date: [{ required: true, message: '请选择日期', trigger: 'change' }],
 }
 
 const loadCategories = async () => {
@@ -152,7 +148,7 @@ const loadMonthlyStats = async () => {
     const res = await axios.get(`${API_BASE}/statistics/${now.getFullYear()}/${now.getMonth() + 1}`)
     monthlyTotal.value = res.data.total
     const expensesRes = await axios.get(`${API_BASE}/expenses`, {
-      params: { year: now.getFullYear(), month: now.getMonth() + 1 }
+      params: { year: now.getFullYear(), month: now.getMonth() + 1 },
     })
     recordCount.value = expensesRes.data.length
   } catch (error) {
@@ -170,16 +166,16 @@ const submitForm = async () => {
     try {
       await axios.post(`${API_BASE}/expenses`, form.value)
       ElMessage.success('记录保存成功')
-      
+
       // 重置表单
       form.value = {
         amount: 0,
         category: '',
         description: '',
-        date: new Date().toISOString().split('T')[0]
+        date: new Date().toISOString().split('T')[0],
       }
       formRef.value?.resetFields()
-      
+
       // 刷新统计
       await loadMonthlyStats()
     } catch (error: any) {

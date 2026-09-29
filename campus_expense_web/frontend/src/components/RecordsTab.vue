@@ -38,10 +38,7 @@
         </el-table-column>
         <el-table-column label="操作" width="100" align="center">
           <template #default="{ row }">
-            <el-popconfirm
-              title="确定删除这条记录吗？"
-              @confirm="deleteExpense(row.id)"
-            >
+            <el-popconfirm title="确定删除这条记录吗？" @confirm="deleteExpense(row.id)">
               <template #reference>
                 <el-button type="danger" size="small" text>
                   <el-icon><Delete /></el-icon>
@@ -102,16 +99,16 @@ const loadExpenses = async () => {
   try {
     let url = `${API_BASE}/expenses`
     const params: any = {}
-    
+
     if (filterDate.value) {
       const [year, month] = filterDate.value.split('-').map(Number)
       params.year = year
       params.month = month
     }
-    
+
     const res = await axios.get(url, { params })
     const allExpenses = res.data
-    
+
     total.value = allExpenses.length
     const start = (currentPage.value - 1) * pageSize.value
     const end = start + pageSize.value
@@ -133,7 +130,7 @@ const loadCategories = async () => {
 }
 
 const getCategoryIcon = (categoryName: string) => {
-  const cat = categories.value.find(c => c.name === categoryName)
+  const cat = categories.value.find((c) => c.name === categoryName)
   return cat ? cat.icon : '📌'
 }
 
