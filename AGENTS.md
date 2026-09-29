@@ -213,33 +213,39 @@ SofteareEnjineer/
 - **budget**: id, monthly_budget
 - **settings**: key, value（存储主题等配置）
 
-## REST API 端点（v2.0）
+## REST API 端点（v2.0 / v3.0 共用同一后端）
+
+以下清单与 `campus_expense_web/backend/main.py` 的实际路由逐条核对过（2026-09-30）。
+
+### 系统
+- `GET /` - 服务标识
+- `GET /api/health` - 健康检查（Electron 主进程用它做启动探活）
 
 ### 消费记录
-- `GET /api/expenses` - 获取消费记录列表（支持 year/month 筛选）
-- `POST /api/expenses` - 创建消费记录
-- `DELETE /api/expenses/{id}` - 删除消费记录
+- `GET /api/expenses?year=&month=` - 获取消费记录列表；year/month 可单独或组合使用，month 必须在 1-12
+- `POST /api/expenses` - 创建消费记录；amount 必须 >0 且为有限数，date 必须为严格补零的 YYYY-MM-DD 且真实存在
+- `DELETE /api/expenses/{id}` - 删除消费记录，不存在返回 404
 
 ### 分类管理
-- `GET /api/categories` - 获取所有分类
-- `POST /api/categories` - 创建自定义分类
-- `DELETE /api/categories/{id}` - 删除自定义分类
+- `GET /api/categories` - 获取所有分类（含 is_default 标记）
+- `POST /api/categories` - 创建自定义分类；名称去空白后不可为空、不可与已有分类重名（400）
+- `DELETE /api/categories/{id}` - 删除自定义分类；默认分类拒绝删除（400）
 
 ### 统计数据
-- `GET /api/statistics/monthly` - 获取月度统计（总额、各分类占比）
-- `GET /api/statistics/category` - 获取分类统计（饼图数据）
+- `GET /api/statistics/{year}/{month}` - 月度统计，返回 total 与按分类聚合的 categories 数组
 
 ### 预算管理
-- `GET /api/budget` - 获取当前预算
-- `POST /api/budget` - 设置月度预算
-- `GET /api/budget/status` - 获取预算使用状态
+- `GET /api/budget` - 返回 monthly_budget（未设置时为 null）、spent、remaining、percentage
+- `PUT /api/budget` - 设置月度预算（注意是 PUT，不是 POST）
 
 ### 数据导出
-- `GET /api/export/csv` - 导出全部记录为 CSV
+- `GET /api/export` - 导出全部记录为 CSV（内存生成，utf-8-sig 带 BOM，表头 ID,日期,分类,描述,金额）
 
-### 设置
-- `GET /api/settings/theme` - 获取当前主题
-- `POST /api/settings/theme` - 设置主题（light/dark）
+### 关于主题
+主题（亮/暗）**没有后端接口**，由渲染层 localStorage 持久化（见 F8）。
+数据库中的 `settings` 表按设计保留但当前未使用。
+历史上文档曾列出 `/api/statistics/monthly`、`/api/statistics/category`、
+`/api/budget/status`、`/api/export/csv`、`/api/settings/theme`，这些端点从未实现，已于 2026-09-30 从文档中移除。
 
 ## 不变量（严禁修改）
 - 数据库表名和字段名
@@ -250,9 +256,18 @@ SofteareEnjineer/
 
 ## 测试说明
 
+### v3.0 Electron 便携版（当前）
+- 后端 API 测试：`cd campus_expense_web/backend && python -m pytest tests/ -v`
+  30 个用例（含 Infinity/NaN、非补零日期、空白分类名、CSV 字节内容、统计口径一致性等
+  回归用例），覆盖率 97%
+- 渲染层组件测试：`cd campus_expense_electron && npm run test:run`
+  vitest + @vue/test-utils + jsdom，覆盖 6 个页面组件与主题 composable
+- 类型检查：`cd campus_expense_electron && npm run typecheck`（node 与 web 两套 tsconfig）
+- 以上三项由 `.github/workflows/ci.yml` 在每次 push 时自动执行
+- 手工验证：Swagger UI（http://localhost:8000/docs）
+
 ### v2.0 现代 Web 版本
-- 后端 API 测试：使用 FastAPI 内置的 Swagger UI（http://localhost:8000/docs）
-- 前端组件测试：待补充（可使用 Vitest）
+- 前端组件测试：`cd campus_expense_web/frontend && npm run test:run`（vitest，6 个用例）
 
 ### v1.0 PyQt5 版本
 - 使用 pytest 运行 test_expense_tracker.py
@@ -260,11 +275,13 @@ SofteareEnjineer/
 - 测试使用临时数据库文件，不污染生产数据
 
 ## 安全注意事项
-- 金额输入必须为正数（后端 Field(gt=0) 校验）
-- 日期格式严格校验（YYYY-MM-DD）
+- 金额输入必须为正数且为有限数（后端 `Field(gt=0, allow_inf_nan=False)`，
+  否则 Infinity 会污染数据库导致读接口永久 500）
+- 日期格式严格校验（补零 YYYY-MM-DD 正则 + 真实日期双重校验）
 - 删除操作需二次确认（前端弹窗）
-- 分类名不可重复、不可为空
-- CORS 配置限制（生产环境应限制 allow_origins）
+- 分类名去空白后不可为空、不可重复
+- CSV 导出在内存中生成，不落临时文件（固定可预测的临时路径可被符号链接劫持）
+- CORS 配置限制（生产环境应限制 allow_origins；当前为 `*`，属已知取舍，见 iteration_log）
 
 ## 跨平台说明
 v2.0 版本支持：

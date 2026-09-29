@@ -235,3 +235,62 @@ F8 主题切换：亮色/暗色两套主题
 - Electron dev 模式启动正常，后端自动 spawn
 - 所有 API 端点返回 200 OK
 - 趋势数据并行加载验证：6 个月统计同时请求完成
+
+---
+
+## v3.0 全面质量审计与修复（Round 5-7）- 2026-09-30
+
+### 我给AI的提示词
+```
+注意，请再次在本机上确认所有功能实现无误，按照ppt流程规范安全可追溯的进行工程，
+对整个软件的所有功能和细节进行全面测试，擅长使用子agent团队进行研究、测试、判断、提升；
+得到完美的exe便携软件
+```
+
+### 审计方法（三路并行）
+1. **子agent A：Windows 运行时静态审查**——读 electron-builder 的 portable.nsi 模板与
+   PyInstaller 源码，逐项核对打包后在 Windows 上的真实行为
+2. **子agent B：后端黑盒测试**——起真实 uvicorn 进程，对 12 个路由做 31 组验收项实测，
+   含并发、CSV 字节内容、统计口径一致性
+3. **浏览器端到端**——生产构建产物 + 真实后端，逐功能点击验证 6 个页面
+
+### 发现并修复的缺陷
+
+| 编号 | 严重度 | 缺陷 | 修复 |
+|---|---|---|---|
+| W1 | 致命 | portable 双击两次会互删解压目录（portable.nsi 启动/退出各 RMDir 一次且无 splash 静默解压）；主进程无单实例锁 | 加 requestSingleInstanceLock + second-instance 聚焦已有窗口 |
+| W2 | 致命 | 后端启动失败/超时时只打日志就退出，用户看到"闪一下什么都没有" | dialog.showErrorBox 给出可见错误 |
+| W3 | 致命 | 装到 Program Files 或写保护 U 盘时数据库目录不可写，后端 import 期即崩 | getDbPath 逐级探测可写性，回退到用户数据目录 |
+| W4 | 高 | 后端是控制台子系统程序且 spawn 未隐藏，Windows 必弹黑色空控制台窗 | spawn 加 windowsHide: true |
+| W5 | 高 | 启动探活只连 TCP 端口，端口被别的服务占用时误判为就绪→白屏 | 改为请求 /api/health，超时放宽到 60s |
+| W6 | 高 | before-quit 里异步 spawn taskkill 来不及执行，残留 backend.exe 占端口 | 改 spawnSync 同步杀进程 |
+| W7 | 中 | 中文 traceback 经管道输出时 Windows 代码页可能 UnicodeEncodeError 二次崩溃 | 注入 PYTHONUTF8/PYTHONIOENCODING |
+| W8 | 中 | preload 暴露 getAppVersion/getUserDataPath 但主进程一个 ipcMain.handle 都没注册 | 补齐 handler，设置页版本号改为真实读取 |
+| B1 | 严重 | amount=Infinity 通过 gt=0 校验落库，此后所有读接口永久 500（数据投毒） | Field 加 allow_inf_nan=False |
+| B2 | 高 | amount=NaN 时错误详情无法 JSON 序列化，422 变 500 | 自定义 RequestValidationError 处理器净化非有限浮点 |
+| B3 | 高 | 非补零日期 '2026-9-5' 能入库但被 SQLite strftime 静默丢弃，记录列表与统计对不上账 | 严格补零正则 + 真实日期双重校验，返回 400 |
+| B4 | 中 | 空白分类名 '   ' 绕过 min_length=1；'餐饮 ' 与 '餐饮' 裂成两个分类 | field_validator 先去空白再校验 |
+| B5 | 中 | CSV 导出写固定可预测的 /tmp 路径，符号链接可劫持覆写任意文件 | 改内存生成直接返回，不落盘 |
+| B6 | 低 | 只传 year 或只传 month 时筛选被静默忽略返回全量 | 分别支持 year-only / month-only |
+| U1 | 中 | Element Plus 未配置 locale，分页/二次确认/日期选择器全是英文，违反"所有文本使用中文" | app.use(ElementPlus, { locale: zhCn }) |
+| U2 | 中 | 日期默认值用 toISOString()（UTC），东八区凌晨 0-8 点默认成昨天 | 新增 todayLocal()/thisMonthLocal() 统一替换 |
+| U3 | 中 | 金额初始 0 被 el-input-number 钳到 min=0.01，不填金额直接保存会静默记一笔 ¥0.01 | 初始值改 undefined，提交前保留两位小数 |
+| U4 | 低 | 记录表缺 ID 列、统计总额非红色、预算 80% 边界用 >80、首页未设预算显示 ¥0.00 橙色 | 按设计逐条修正 |
+| U5 | 低 | RecordsTab/StatisticsTab 加载了分类却从未使用，每次进页面白发一次请求 | 删除死代码 |
+| C1 | 高 | npm run typecheck 从未通过：主进程打包分支返回对象缺 args 字段 | 补 args: []，typecheck 接入验证流程 |
+
+### 验证结果
+- 后端：19 → **30 个测试通过**，覆盖率 95% → **97%**；black/isort/flake8 全过
+- 渲染层：typecheck（node+web）全过，electron-vite build 成功（2260 模块）
+- 浏览器端到端：F1 记账（成功提示/清空/日期保留/概览联动）、F2 记录（ID 列/二次确认/取消不删）、
+  F3 统计（红色总额/饼图/占比 100.0%）、F5 预算（空状态/80% 边界黄色/超支红色）、
+  F6 分类（新增自定义/默认不可删/同步到记账下拉框）、F8 主题（即时生效/刷新后保持）全部实测通过
+- Windows 构建：GitHub Actions 4 分 38 秒成功，产出便携版 94.7MB + NSIS 安装包 94.9MB，
+  便携版 exe 已下载并校验（PE32 GUI、MZ 头、字节数与 Release 完全一致）
+
+### 已知未修复项（有意保留，附理由）
+- CORS allow_origins=["*"]：桌面单机应用，收紧可能破坏 file:// 来源的打包态，风险收益比不合算
+- CSV 金额导出为原始浮点而非两位小数：导出是数据而非展示，展示层已统一 toFixed(2)
+- SQLite 单连接 + async handler 的串行化特性：当前架构下无并发问题，改每请求连接属重构，留待 v4.0
+- portable 目标二次双击的残余风险：单实例锁只能阻止第二个 Electron 实例，NSIS 解压壳的 RMDir
+  发生在应用启动前；彻底解决需要 splash 图或改用 NSIS 安装版，答辩建议用安装版演示
