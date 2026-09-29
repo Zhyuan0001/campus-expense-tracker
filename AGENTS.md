@@ -53,6 +53,13 @@ uvicorn main:app --reload --host 127.0.0.1 --port 8000
 # 6. 单独运行前端开发服务器（调试用）
 cd frontend
 npm run dev
+
+# 7. 构建便携版可执行文件（无需安装 Python/Node.js）
+./build_portable.sh
+# 或手动构建：
+cd frontend && npm run build && cd ..
+pyinstaller --clean portable.spec
+# 产物在 dist/ 目录下，双击即可运行
 ```
 
 ### v1.0 PyQt5 版本（历史版本）
@@ -88,31 +95,44 @@ pytest test_expense_tracker.py -v
 ```
 SofteareEnjineer/
 ├── campus_expense_web/              # v2.0 现代 Web 版本（推荐）
-│   ├── app.py                       # pywebview 桌面启动器
+│   ├── app.py                       # pywebview 桌面启动器（开发模式）
+│   ├── app_portable.py              # 便携版启动器（PyInstaller 打包用）
+│   ├── portable.spec                # PyInstaller 打包配置
+│   ├── build_portable.sh            # 一键构建便携版脚本
 │   ├── requirements.txt             # Python 依赖
 │   ├── README.md                    # 项目说明
 │   ├── backend/
-│   │   └── main.py                  # FastAPI 后端（REST API）
+│   │   ├── main.py                  # FastAPI 后端（REST API）
+│   │   ├── requirements.txt
+│   │   ├── requirements-dev.txt     # 开发依赖（测试、代码质量）
+│   │   ├── pyproject.toml           # 工具配置（black、isort、mypy等）
+│   │   └── tests/
+│   │       └── test_api.py          # 后端 API 测试（19个用例）
 │   ├── frontend/
 │   │   ├── src/
 │   │   │   ├── App.vue              # 主应用组件
 │   │   │   ├── main.ts              # 入口文件
-│   │   │   └── components/
-│   │   │       ├── ExpenseTab.vue   # 记账 Tab
-│   │   │       ├── RecordsTab.vue   # 记录 Tab
-│   │   │       ├── StatisticsTab.vue # 统计 Tab
-│   │   │       ├── BudgetTab.vue    # 预算 Tab
-│   │   │       └── SettingsTab.vue  # 设置 Tab
+│   │   │   ├── components/
+│   │   │   │   ├── ExpenseTab.vue   # 记账 Tab
+│   │   │   │   ├── RecordsTab.vue   # 记录 Tab
+│   │   │   │   ├── StatisticsTab.vue # 统计 Tab
+│   │   │   │   ├── BudgetTab.vue    # 预算 Tab
+│   │   │   │   └── SettingsTab.vue  # 设置 Tab
+│   │   │   └── __tests__/           # 前端单元测试
 │   │   ├── package.json
 │   │   ├── vite.config.ts
+│   │   ├── vitest.config.ts
+│   │   ├── eslint.config.js
 │   │   └── tsconfig.json
-│   └── campus_expenses.db           # SQLite 数据库（运行时生成）
+│   └── dist/                        # 便携版可执行文件（构建产物）
 │
 ├── campus_expense_tracker.py        # v1.0 PyQt5 版本（历史）
 ├── test_expense_tracker.py          # v1.0 单元测试
 ├── DESIGN.md                        # 设计文档
 ├── AGENTS.md                        # 本文件
 ├── iteration_log.md                 # 迭代记录
+├── Makefile                         # 开发便捷命令
+├── .github/workflows/ci.yml         # CI/CD 流水线
 └── .gitignore
 ```
 
@@ -135,20 +155,14 @@ SofteareEnjineer/
 - `DELETE /api/categories/{id}` - 删除自定义分类
 
 ### 统计数据
-- `GET /api/statistics/monthly` - 获取月度统计（总额、各分类占比）
-- `GET /api/statistics/category` - 获取分类统计（饼图数据）
+- `GET /api/statistics/{year}/{month}` - 获取月度统计（总额、各分类占比）
 
 ### 预算管理
-- `GET /api/budget` - 获取当前预算
-- `POST /api/budget` - 设置月度预算
-- `GET /api/budget/status` - 获取预算使用状态
+- `GET /api/budget` - 获取预算信息（含已花费、剩余、百分比）
+- `PUT /api/budget` - 设置月度预算
 
 ### 数据导出
-- `GET /api/export/csv` - 导出全部记录为 CSV
-
-### 设置
-- `GET /api/settings/theme` - 获取当前主题
-- `POST /api/settings/theme` - 设置主题（light/dark）
+- `GET /api/export` - 导出全部记录为 CSV
 
 ## 不变量（严禁修改）
 - 数据库表名和字段名
@@ -160,8 +174,9 @@ SofteareEnjineer/
 ## 测试说明
 
 ### v2.0 现代 Web 版本
-- 后端 API 测试：使用 FastAPI 内置的 Swagger UI（http://localhost:8000/docs）
-- 前端组件测试：待补充（可使用 Vitest）
+- 后端 API 测试：`cd campus_expense_web/backend && pytest tests/ -v`（19个用例，97%覆盖率）
+- 前端组件测试：`cd campus_expense_web/frontend && npm run test:run`
+- 代码质量检查：`black --check backend/`、`mypy backend/`、`eslint frontend/src/`
 
 ### v1.0 PyQt5 版本
 - 使用 pytest 运行 test_expense_tracker.py
