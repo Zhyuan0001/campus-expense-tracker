@@ -317,3 +317,131 @@ class TestExportAPI:
 #         assert response.status_code == 200
 #         data = response.json()
 #         assert "theme" in data
+
+
+class TestDefectRegressions:
+    """黑盒测试发现的缺陷回归用例
+
+    这些场景原先 19 个测试全部通过却一个都没覆盖到：TestClient 走 ASGI 内存调用，
+    且用例从不发送 Infinity/NaN、非补零日期、纯空白分类名，也不校验 CSV 字节内容。
+    """
+
+    def test_infinity_amount_rejected_and_not_persisted(self, client):
+        """D1: Infinity 曾被写入数据库，此后所有读接口永久 500"""
+        response = client.post("/api/expenses", json={
+            "amount": float("inf"),
+            "category": "餐饮",
+            "description": "",
+            "date": "2026-09-15"
+        })
+        assert response.status_code == 422
+
+        # 关键是脏数据没有落库，读接口必须仍然可用
+        assert client.get("/api/expenses").status_code == 200
+        assert client.get("/api/budget").status_code == 200
+        assert client.get("/api/statistics/2026/9").status_code == 200
+
+    def test_nan_amount_returns_422_not_500(self, client):
+        """D2: NaN 曾让错误详情无法 JSON 序列化，返回 500"""
+        response = client.post("/api/expenses", json={
+            "amount": float("nan"),
+            "category": "餐饮",
+            "description": "",
+            "date": "2026-09-15"
+        })
+        assert response.status_code == 422
+        assert response.json()["detail"]
+
+    def test_infinity_budget_rejected(self, client):
+        """D3: 预算 Infinity 曾被接受，导致 GET /api/budget 永久 500"""
+        assert client.put("/api/budget", json={"amount": float("inf")}).status_code == 422
+        assert client.get("/api/budget").status_code == 200
+
+    def test_non_padded_date_rejected(self, client):
+        """D4: '2026-9-5' 曾被接受，但 SQLite strftime 认不出，统计里被静默丢弃"""
+        response = client.post("/api/expenses", json={
+            "amount": 22,
+            "category": "餐饮",
+            "description": "",
+            "date": "2026-9-5"
+        })
+        assert response.status_code == 400
+        assert response.json()["detail"] == "日期格式错误，应为YYYY-MM-DD"
+
+    def test_calendar_impossible_date_rejected(self, client):
+        """2026-02-30 能通过格式正则但不是合法日期"""
+        response = client.post("/api/expenses", json={
+            "amount": 10,
+            "category": "餐饮",
+            "description": "",
+            "date": "2026-02-30"
+        })
+        assert response.status_code == 400
+
+    def test_statistics_total_equals_record_sum(self, client):
+        """D4 的实际后果：记录列表合计必须等于统计总额，否则账不平"""
+        for day in ("2026-09-05", "2026-09-20"):
+            client.post("/api/expenses", json={
+                "amount": 11,
+                "category": "餐饮",
+                "description": "",
+                "date": day
+            })
+        records = client.get("/api/expenses", params={"year": 2026, "month": 9}).json()
+        stats = client.get("/api/statistics/2026/9").json()
+        assert len(records) == 2
+        assert stats["total"] == pytest.approx(sum(r["amount"] for r in records))
+
+    def test_whitespace_category_name_rejected(self, client):
+        """D5: '   ' 曾绕过 min_length=1 建出空分类"""
+        assert client.post("/api/categories", json={"name": "   "}).status_code == 422
+
+    def test_category_name_is_trimmed(self, client):
+        """D5: '餐饮 ' 曾与 '餐饮' 并存，同一分类在统计里裂成两条"""
+        response = client.post("/api/categories", json={"name": "宠物 "})
+        assert response.status_code == 200
+        assert response.json()["name"] == "宠物"
+        # 去空白后与刚建的分类重名，必须被拒绝
+        assert client.post("/api/categories", json={"name": " 宠物"}).status_code == 400
+
+    def test_export_csv_bytes(self, client):
+        """D6: 导出改为内存生成，不再写可预测的临时文件（符号链接劫持风险）"""
+        client.post("/api/expenses", json={
+            "amount": 100,
+            "category": "餐饮",
+            "description": '含,逗号和"引号"',
+            "date": "2026-09-15"
+        })
+        response = client.get("/api/export")
+        assert response.status_code == 200
+        assert "text/csv" in response.headers["content-type"]
+
+        expected_header = "\ufeffID,日期,分类,描述,金额\r\n".encode("utf-8")
+        assert response.content.startswith(expected_header)
+        assert '"含,逗号和""引号"""'.encode("utf-8") in response.content
+
+    def test_year_only_filter_is_applied(self, client):
+        """D8: 只传 year 时筛选曾被静默忽略，返回全量"""
+        for day in ("2025-09-15", "2026-09-15"):
+            client.post("/api/expenses", json={
+                "amount": 1,
+                "category": "餐饮",
+                "description": "",
+                "date": day
+            })
+        data = client.get("/api/expenses", params={"year": 2026}).json()
+        assert len(data) == 1
+        assert data[0]["date"] == "2026-09-15"
+
+    def test_month_only_filter_is_applied(self, client):
+        """D8: 只传 month 同样要生效"""
+        for day in ("2026-08-15", "2026-09-15"):
+            client.post("/api/expenses", json={
+                "amount": 1,
+                "category": "餐饮",
+                "description": "",
+                "date": day
+            })
+        data = client.get("/api/expenses", params={"month": 9}).json()
+        assert len(data) == 1
+        assert data[0]["date"] == "2026-09-15"

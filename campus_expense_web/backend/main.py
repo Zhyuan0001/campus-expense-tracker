@@ -3,16 +3,27 @@
 将原有PyQt5业务逻辑重构为REST API
 """
 
+import csv
+import io
+import math
 import os
+import re
 import sqlite3
 import sys
 from contextlib import asynccontextmanager
 from datetime import date, datetime
-from typing import List, Optional
+from typing import Any, List, Optional
 
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Request
+from fastapi.encoders import jsonable_encoder
+from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
-from pydantic import BaseModel, Field
+from fastapi.responses import JSONResponse, Response
+from pydantic import BaseModel, Field, field_validator
+
+# SQLite 的 strftime 只认严格补零的 ISO 日期，'2026-9-5' 会返回 NULL 从而
+# 被月度统计静默丢弃（记录列表能看到、统计和饼图里却没有），因此入库前必须挡住
+DATE_PATTERN = re.compile(r"^\d{4}-(0[1-9]|1[0-2])-(0[1-9]|[12]\d|3[01])$")
 
 
 @asynccontextmanager
@@ -32,8 +43,31 @@ app.add_middleware(
 )
 
 
+def _make_json_safe(value: Any) -> Any:
+    # 请求体里的 NaN/Infinity 会被 Python 的 json 解析成 float，原样回显到错误详情时
+    # JSONResponse 会因 allow_nan=False 抛 ValueError，本该 422 的响应就变成了 500
+    if isinstance(value, float) and not math.isfinite(value):
+        return str(value)
+    if isinstance(value, dict):
+        return {k: _make_json_safe(v) for k, v in value.items()}
+    if isinstance(value, (list, tuple)):
+        return [_make_json_safe(v) for v in value]
+    return value
+
+
+@app.exception_handler(RequestValidationError)
+async def validation_exception_handler(request: Request, exc: RequestValidationError):
+    return JSONResponse(
+        status_code=422,
+        content={"detail": _make_json_safe(jsonable_encoder(exc.errors()))},
+    )
+
+
 class ExpenseCreate(BaseModel):
-    amount: float = Field(..., gt=0, description="金额，必须大于0")
+    # allow_inf_nan=False 是必须的：Python 的 json 会接受 Infinity/NaN 字面量，
+    # 而 gt=0 对 +inf 成立，一旦写进 SQLite，之后所有读接口都会因为
+    # JSONResponse 的 allow_nan=False 序列化失败而永久返回 500
+    amount: float = Field(..., gt=0, allow_inf_nan=False, description="金额，必须大于0")
     category: str = Field(..., min_length=1, description="分类名称")
     description: str = Field(default="", max_length=200, description="描述")
     date: str = Field(..., description="日期，格式YYYY-MM-DD")
@@ -52,6 +86,13 @@ class CategoryCreate(BaseModel):
     name: str = Field(..., min_length=1, max_length=20, description="分类名称")
     icon: str = Field(default="📌", description="图标")
 
+    @field_validator("name", "icon", mode="before")
+    @classmethod
+    def strip_whitespace(cls, v: Any) -> Any:
+        # 先去空白再校验长度：否则 "   " 能绕过 min_length=1 建出空分类，
+        # "餐饮 " 也会被当成与 "餐饮" 不同的分类，导致统计里同一类裂成两条
+        return v.strip() if isinstance(v, str) else v
+
 
 class CategoryResponse(BaseModel):
     id: int
@@ -61,7 +102,7 @@ class CategoryResponse(BaseModel):
 
 
 class BudgetUpdate(BaseModel):
-    amount: float = Field(..., gt=0, description="月度预算金额")
+    amount: float = Field(..., gt=0, allow_inf_nan=False, description="月度预算金额")
 
 
 class BudgetResponse(BaseModel):
@@ -142,15 +183,18 @@ class Database:
 
     def get_expenses(self, year=None, month=None):
         c = self.conn.cursor()
-        if year and month:
-            c.execute(
-                """SELECT * FROM expenses
-                        WHERE strftime('%Y', date) = ? AND strftime('%m', date) = ?
-                        ORDER BY date DESC, id DESC""",
-                (str(year), f"{month:02d}"),
-            )
-        else:
-            c.execute("SELECT * FROM expenses ORDER BY date DESC, id DESC")
+        # 原先要求 year 和 month 必须同时给出，否则静默返回全量，
+        # 调用方只传 year 时会以为筛选生效了
+        conditions = []
+        params = []
+        if year is not None:
+            conditions.append("strftime('%Y', date) = ?")
+            params.append(str(year))
+        if month is not None:
+            conditions.append("strftime('%m', date) = ?")
+            params.append(f"{month:02d}")
+        where = f"WHERE {' AND '.join(conditions)} " if conditions else ""
+        c.execute(f"SELECT * FROM expenses {where}ORDER BY date DESC, id DESC", params)
         return [dict(row) for row in c.fetchall()]
 
     def delete_expense(self, expense_id):
@@ -214,15 +258,15 @@ class Database:
     def close(self):
         self.conn.close()
 
-    def export_csv(self, filepath):
-        import csv
-
+    def build_csv(self):
         c = self.conn.cursor()
         c.execute("SELECT id, date, category, description, amount FROM expenses ORDER BY date")
-        with open(filepath, "w", newline="", encoding="utf-8-sig") as f:
-            writer = csv.writer(f)
-            writer.writerow(["ID", "日期", "分类", "描述", "金额"])
-            writer.writerows(c.fetchall())
+        buf = io.StringIO(newline="")
+        writer = csv.writer(buf)
+        writer.writerow(["ID", "日期", "分类", "描述", "金额"])
+        writer.writerows(c.fetchall())
+        # utf-8-sig 带 BOM，Excel 直接打开中文才不乱码
+        return buf.getvalue().encode("utf-8-sig")
 
 
 def _get_db_path() -> str:
@@ -259,20 +303,22 @@ async def get_expenses(year: Optional[int] = None, month: Optional[int] = None):
 
 @app.post("/api/expenses", response_model=ExpenseResponse)
 async def create_expense(expense: ExpenseCreate):
-    try:
-        datetime.strptime(expense.date, "%Y-%m-%d")
-    except ValueError:
+    if not DATE_PATTERN.match(expense.date):
         raise HTTPException(status_code=400, detail="日期格式错误，应为YYYY-MM-DD")
+    try:
+        parsed = datetime.strptime(expense.date, "%Y-%m-%d").date()
+    except ValueError:
+        raise HTTPException(status_code=400, detail="日期不存在")
 
     expense_id, created_at = db.add_expense(
-        expense.amount, expense.category, expense.description, expense.date
+        expense.amount, expense.category, expense.description, parsed.isoformat()
     )
     return {
         "id": expense_id,
         "amount": expense.amount,
         "category": expense.category,
         "description": expense.description,
-        "date": expense.date,
+        "date": parsed.isoformat(),
         "created_at": created_at,
     }
 
@@ -348,19 +394,12 @@ async def get_statistics(year: int, month: int):
 
 @app.get("/api/export")
 async def export_csv():
-    import tempfile
-
-    from fastapi.responses import FileResponse
-
-    today = date.today().strftime("%Y%m%d")
-    filepath = os.path.join(tempfile.gettempdir(), f"campus_expenses_{today}.csv")
-    db.export_csv(filepath)
-
-    filename = f"campus_expenses_{today}.csv"
-    return FileResponse(
-        filepath,
-        media_type="text/csv",
-        filename=filename,
+    # 不再落临时文件：固定可预测的 /tmp 路径能被同机其他用户用符号链接劫持，
+    # 让服务进程覆写任意文件，而且导出后的残留文件从不清理
+    filename = f"campus_expenses_{date.today().strftime('%Y%m%d')}.csv"
+    return Response(
+        content=db.build_csv(),
+        media_type="text/csv; charset=utf-8",
         headers={"Content-Disposition": f"attachment; filename={filename}"},
     )
 
