@@ -69,6 +69,35 @@ jobs:
         cd campus_expense_web/frontend
         npm run build
 
+  electron-test:
+    name: Electron Renderer Tests
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Set up Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '24'
+        cache: 'npm'
+        cache-dependency-path: campus_expense_electron/package-lock.json
+
+    - name: Install dependencies
+      run: |
+        cd campus_expense_electron
+        npm ci
+
+    - name: Typecheck
+      run: |
+        cd campus_expense_electron
+        npm run typecheck
+
+    - name: Run renderer tests
+      run: |
+        cd campus_expense_electron
+        npm run test:run
+
   code-quality:
     name: Code Quality
     runs-on: ubuntu-latest
