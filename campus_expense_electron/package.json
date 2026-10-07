@@ -1,6 +1,6 @@
 {
   "name": "campus-expense-electron",
-  "version": "3.0.1",
+  "version": "3.1.0",
   "description": "校园消费记账系统 - Electron桌面版",
   "main": "./out/main/index.js",
   "author": "campus-expense-team",
