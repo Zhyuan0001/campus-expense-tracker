@@ -9,6 +9,7 @@ installDomStubs()
 const mockApi = vi.hoisted(() => ({
   getExpenses: vi.fn(),
   createExpense: vi.fn(),
+  updateExpense: vi.fn(),
   deleteExpense: vi.fn(),
   getCategories: vi.fn(),
   createCategory: vi.fn(),
@@ -40,6 +41,9 @@ const rows = [
   }
 ]
 
+// loadExpenses 现在会带上第三个筛选参数对象（keyword / category）
+const NO_FILTER = { keyword: undefined, category: undefined }
+
 describe('RecordsTab', () => {
   let wrapper: VueWrapper
 
@@ -47,6 +51,13 @@ describe('RecordsTab', () => {
     vi.clearAllMocks()
     mockApi.getExpenses.mockResolvedValue({ data: rows })
     mockApi.deleteExpense.mockResolvedValue({ data: {} })
+    mockApi.updateExpense.mockResolvedValue({ data: {} })
+    mockApi.getCategories.mockResolvedValue({
+      data: [
+        { id: 1, name: '餐饮', icon: '🍜', is_default: true },
+        { id: 2, name: '交通', icon: '🚌', is_default: true }
+      ]
+    })
   })
 
   afterEach(() => {
@@ -78,13 +89,29 @@ describe('RecordsTab', () => {
   it('设置月份筛选 2026-09 后，以 year=2026、month=9 重新请求', async () => {
     wrapper = mount(RecordsTab)
     await flushPromises()
-    expect(mockApi.getExpenses).toHaveBeenLastCalledWith(undefined, undefined)
+    expect(mockApi.getExpenses).toHaveBeenLastCalledWith(undefined, undefined, NO_FILTER)
 
     wrapper.findComponent(ElDatePicker).vm.$emit('update:modelValue', '2026-09')
     await flushPromises()
 
     expect(mockApi.getExpenses).toHaveBeenCalledTimes(2)
-    expect(mockApi.getExpenses).toHaveBeenLastCalledWith(2026, 9)
+    expect(mockApi.getExpenses).toHaveBeenLastCalledWith(2026, 9, NO_FILTER)
+  })
+
+  it('关键字搜索以 keyword 请求', async () => {
+    wrapper = mount(RecordsTab)
+    await flushPromises()
+
+    const input = wrapper.find('input[placeholder="搜索描述 / 分类"]')
+    expect(input.exists()).toBe(true)
+    await input.setValue('地铁')
+    await input.trigger('keyup.enter')
+    await flushPromises()
+
+    expect(mockApi.getExpenses).toHaveBeenLastCalledWith(undefined, undefined, {
+      keyword: '地铁',
+      category: undefined
+    })
   })
 
   it('ElPopconfirm 触发 confirm 后以该行 id 调用 deleteExpense', async () => {

@@ -10,6 +10,7 @@ installDomStubs()
 const mockApi = vi.hoisted(() => ({
   getExpenses: vi.fn(),
   createExpense: vi.fn(),
+  updateExpense: vi.fn(),
   deleteExpense: vi.fn(),
   getCategories: vi.fn(),
   createCategory: vi.fn(),
@@ -17,7 +18,9 @@ const mockApi = vi.hoisted(() => ({
   getStatistics: vi.fn(),
   getBudget: vi.fn(),
   setBudget: vi.fn(),
-  exportCSV: vi.fn()
+  exportCSV: vi.fn(),
+  getBackup: vi.fn(),
+  restoreBackup: vi.fn()
 }))
 
 vi.mock('@/api', () => ({ api: mockApi }))
@@ -127,7 +130,7 @@ describe('SettingsTab', () => {
     expect(wrapper.text()).toMatch(/\d+\.\d+\.\d+ \(Electron\)/)
   })
 
-  it('点"导出CSV"调用 exportCSV 并走 blob 下载回退', async () => {
+  it('点"导出 CSV"调用 exportCSV 并走 blob 下载回退', async () => {
     // jsdom 没有 URL.createObjectURL / 下载能力，测试内 stub
     const createObjectURL = vi.fn(() => 'blob:mock-url')
     const revokeObjectURL = vi.fn()
@@ -141,20 +144,50 @@ describe('SettingsTab', () => {
       configurable: true,
       writable: true
     })
-    const clickSpy = vi
-      .spyOn(HTMLAnchorElement.prototype, 'click')
-      .mockImplementation(() => {})
+    const clickSpy = vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(() => {})
 
     wrapper = mount(SettingsTab)
     await flushPromises()
 
-    await findButton(wrapper, '导出CSV').trigger('click')
+    await findButton(wrapper, '导出 CSV').trigger('click')
     await flushPromises()
 
     expect(mockApi.exportCSV).toHaveBeenCalledTimes(1)
     expect(createObjectURL).toHaveBeenCalled()
     expect(revokeObjectURL).toHaveBeenCalledWith('blob:mock-url')
     expect(document.body.textContent).toContain('导出成功')
+
+    clickSpy.mockRestore()
+  })
+
+  it('点"备份数据"调用 getBackup 并走 blob 下载回退', async () => {
+    const createObjectURL = vi.fn(() => 'blob:backup-url')
+    const revokeObjectURL = vi.fn()
+    Object.defineProperty(window.URL, 'createObjectURL', {
+      value: createObjectURL,
+      configurable: true,
+      writable: true
+    })
+    Object.defineProperty(window.URL, 'revokeObjectURL', {
+      value: revokeObjectURL,
+      configurable: true,
+      writable: true
+    })
+    const clickSpy = vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(() => {})
+    mockApi.getBackup.mockResolvedValue({
+      data: { version: '3.0', expenses: [], categories: [], budget: null }
+    })
+
+    wrapper = mount(SettingsTab)
+    await flushPromises()
+
+    await findButton(wrapper, '备份数据').trigger('click')
+    await flushPromises()
+
+    expect(mockApi.getBackup).toHaveBeenCalledTimes(1)
+    expect(createObjectURL).toHaveBeenCalled()
+    expect(revokeObjectURL).toHaveBeenCalledWith('blob:backup-url')
+    expect(document.body.textContent).toContain('备份')
 
     clickSpy.mockRestore()
   })

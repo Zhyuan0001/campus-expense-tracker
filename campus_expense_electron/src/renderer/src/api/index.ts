@@ -37,15 +37,41 @@ export interface MonthlyStats {
   categories: CategoryStat[]
 }
 
+export interface BackupData {
+  version: string
+  exported_at?: string
+  expenses: Expense[]
+  categories: Category[]
+  budget: number | null
+}
+
 export const api = {
-  getExpenses(year?: number, month?: number) {
+  getExpenses(
+    year?: number,
+    month?: number,
+    filters?: {
+      keyword?: string
+      category?: string
+      date_from?: string
+      date_to?: string
+      min_amount?: number
+      max_amount?: number
+    }
+  ) {
     return axios.get<Expense[]>(`${API_BASE}/expenses`, {
-      params: { year, month }
+      params: { year, month, ...filters }
     })
   },
 
   createExpense(data: { amount: number; category: string; description: string; date: string }) {
     return axios.post<Expense>(`${API_BASE}/expenses`, data)
+  },
+
+  updateExpense(
+    id: number,
+    data: { amount: number; category: string; description: string; date: string }
+  ) {
+    return axios.put<Expense>(`${API_BASE}/expenses/${id}`, data)
   },
 
   deleteExpense(id: number) {
@@ -78,5 +104,13 @@ export const api = {
 
   exportCSV() {
     return axios.get(`${API_BASE}/export`, { responseType: 'blob' })
+  },
+
+  getBackup() {
+    return axios.get<BackupData>(`${API_BASE}/backup`)
+  },
+
+  restoreBackup(payload: unknown) {
+    return axios.post<{ message: string }>(`${API_BASE}/restore`, payload)
   }
 }

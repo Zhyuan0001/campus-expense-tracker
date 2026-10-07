@@ -1,5 +1,5 @@
 <template>
-  <div class="statistics-tab">
+  <div ref="statsRef" class="statistics-tab">
     <el-card shadow="hover">
       <template #header>
         <div class="card-header">
@@ -53,29 +53,45 @@
 </template>
 
 <script setup lang="ts">
-import { ref, watch, onMounted, onBeforeUnmount, nextTick } from 'vue'
+import { ref, computed, watch, onMounted, onBeforeUnmount, nextTick } from 'vue'
 import { DataAnalysis } from '@element-plus/icons-vue'
 import { ElMessage } from 'element-plus'
 import * as echarts from 'echarts'
 import { api, type CategoryStat } from '@/api'
 import {
-  CATEGORY_COLORS, getCategoryIcon, getChartTextColor, getChartBorderColor, thisMonthLocal
+  CATEGORY_COLORS,
+  getCategoryIcon,
+  getChartTextColor,
+  getChartBorderColor,
+  thisMonthLocal
 } from '@/utils/constants'
+import { useLayout } from '@/composables/useLayout'
 
 const selectedMonth = ref(thisMonthLocal())
 const loading = ref(false)
 const total = ref(0)
 const categoryData = ref<CategoryStat[]>([])
 const chartRef = ref<HTMLElement>()
+const statsRef = ref<HTMLElement>()
 let chart: echarts.ECharts | null = null
+let resizeObserver: ResizeObserver | null = null
+
+const { isPortrait } = useLayout()
+
+// legend 随比例换位：横窗放右侧（省纵向），竖窗移到底部（右侧竖排会挤压饼图）
+const legendOption = computed(() =>
+  isPortrait.value
+    ? { orient: 'horizontal' as const, bottom: 0, left: 'center' as const }
+    : { orient: 'vertical' as const, right: '5%', top: 'center' as const }
+)
 
 const loadStatistics = async (): Promise<void> => {
   if (!selectedMonth.value) return
 
   loading.value = true
   try {
-    const [year, month] = selectedMonth.value.split('-').map(Number)
-    const res = await api.getStatistics(year, month)
+    const parts = selectedMonth.value.split('-').map(Number)
+    const res = await api.getStatistics(parts[0], parts[1])
 
     total.value = res.data.total
     categoryData.value = res.data.categories
@@ -102,51 +118,56 @@ const renderChart = (): void => {
       formatter: '{b}: ¥{c} ({d}%)'
     },
     legend: {
-      orient: 'vertical',
-      right: '5%',
-      top: 'center',
+      ...legendOption.value,
       textStyle: { color: getChartTextColor() }
     },
-    series: [{
-      name: '消费分类',
-      type: 'pie',
-      radius: ['42%', '70%'],
-      center: ['35%', '50%'],
-      avoidLabelOverlap: false,
-      itemStyle: {
-        borderRadius: 8,
-        borderColor: getChartBorderColor(),
-        borderWidth: 2
-      },
-      label: { show: false },
-      emphasis: {
-        label: { show: true, fontSize: 15, fontWeight: 'bold', color: getChartTextColor() },
-        itemStyle: { shadowBlur: 10, shadowColor: 'rgba(0,0,0,0.15)' }
-      },
-      data: categoryData.value.map((item, index) => ({
-        value: item.total,
-        name: item.category,
-        itemStyle: { color: CATEGORY_COLORS[index % CATEGORY_COLORS.length] }
-      }))
-    }]
+    series: [
+      {
+        name: '消费分类',
+        type: 'pie',
+        radius: ['42%', '70%'],
+        center: ['35%', '50%'],
+        avoidLabelOverlap: false,
+        itemStyle: {
+          borderRadius: 8,
+          borderColor: getChartBorderColor(),
+          borderWidth: 2
+        },
+        label: { show: false },
+        emphasis: {
+          label: { show: true, fontSize: 15, fontWeight: 'bold', color: getChartTextColor() },
+          itemStyle: { shadowBlur: 10, shadowColor: 'rgba(0,0,0,0.15)' }
+        },
+        data: categoryData.value.map((item, index) => ({
+          value: item.total,
+          name: item.category,
+          itemStyle: { color: CATEGORY_COLORS[index % CATEGORY_COLORS.length] }
+        }))
+      }
+    ]
   })
-}
-
-const handleResize = (): void => {
-  chart?.resize()
 }
 
 watch(selectedMonth, () => {
   loadStatistics()
 })
 
+// 竖窗/横窗切换时图例位置要重排
+watch(isPortrait, () => {
+  renderChart()
+})
+
 onMounted(async () => {
   await loadStatistics()
-  window.addEventListener('resize', handleResize)
+  // 跟容器走：侧栏折叠或窗口缩放都能触发重绘
+  if (statsRef.value && typeof ResizeObserver !== 'undefined') {
+    resizeObserver = new ResizeObserver(() => chart?.resize())
+    resizeObserver.observe(statsRef.value)
+  }
 })
 
 onBeforeUnmount(() => {
-  window.removeEventListener('resize', handleResize)
+  resizeObserver?.disconnect()
   chart?.dispose()
 })
 </script>
@@ -178,7 +199,11 @@ onBeforeUnmount(() => {
 .total-card {
   text-align: center;
   padding: 28px;
-  background: linear-gradient(135deg, var(--el-color-primary-light-9) 0%, var(--el-color-primary-light-7) 100%);
+  background: linear-gradient(
+    135deg,
+    var(--el-color-primary-light-9) 0%,
+    var(--el-color-primary-light-7) 100%
+  );
   border-radius: 12px;
   margin-bottom: 28px;
 }
@@ -201,7 +226,8 @@ onBeforeUnmount(() => {
 
 .pie-chart {
   width: 100%;
-  height: 380px;
+  /* 高度随视口，矮窗自动压缩 */
+  height: clamp(260px, 40vh, 380px);
 }
 
 .category-list {

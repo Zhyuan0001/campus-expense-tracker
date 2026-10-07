@@ -205,9 +205,10 @@ onMounted(() => {
   margin-top: 28px;
 }
 
+/* auto-fit：窄窗自动落到单列，不必写死断点 */
 .budget-stats {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
+  grid-template-columns: repeat(auto-fit, minmax(min(220px, 100%), 1fr));
   gap: 20px;
   margin: 28px 0;
 }
@@ -244,11 +245,5 @@ onMounted(() => {
 .stat-value {
   font-size: 22px;
   font-weight: 700;
-}
-
-@media (max-width: 700px) {
-  .budget-stats {
-    grid-template-columns: 1fr;
-  }
 }
 </style>

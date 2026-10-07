@@ -445,3 +445,176 @@ class TestDefectRegressions:
         data = client.get("/api/expenses", params={"month": 9}).json()
         assert len(data) == 1
         assert data[0]["date"] == "2026-09-15"
+
+
+class TestExpenseUpdateAPI:
+    """编辑记录 API 测试（PUT /api/expenses/{id}）"""
+
+    def _create(self, client, **kw):
+        payload = {"amount": 20, "category": "餐饮", "description": "原描述", "date": "2026-09-15"}
+        payload.update(kw)
+        return client.post("/api/expenses", json=payload).json()["id"]
+
+    def test_update_expense(self, client):
+        eid = self._create(client)
+        response = client.put(f"/api/expenses/{eid}", json={
+            "amount": 99.5,
+            "category": "交通",
+            "description": "改成地铁",
+            "date": "2026-09-20"
+        })
+        assert response.status_code == 200
+        data = response.json()
+        assert data["id"] == eid
+        assert data["amount"] == 99.5
+        assert data["category"] == "交通"
+        assert data["description"] == "改成地铁"
+        assert data["date"] == "2026-09-20"
+
+    def test_update_persists(self, client):
+        eid = self._create(client)
+        client.put(f"/api/expenses/{eid}", json={
+            "amount": 5, "category": "学习", "description": "", "date": "2026-09-16"
+        })
+        rows = client.get("/api/expenses").json()
+        row = next(x for x in rows if x["id"] == eid)
+        assert row["amount"] == 5
+        assert row["category"] == "学习"
+
+    def test_update_nonexistent_expense(self, client):
+        response = client.put("/api/expenses/99999", json={
+            "amount": 1, "category": "餐饮", "description": "", "date": "2026-09-15"
+        })
+        assert response.status_code == 404
+
+    def test_update_with_invalid_date(self, client):
+        eid = self._create(client)
+        response = client.put(f"/api/expenses/{eid}", json={
+            "amount": 1, "category": "餐饮", "description": "", "date": "2026-9-5"
+        })
+        assert response.status_code == 400
+
+    def test_update_with_invalid_amount_does_not_touch_row(self, client):
+        eid = self._create(client)
+        assert client.put(f"/api/expenses/{eid}", json={
+            "amount": -5, "category": "餐饮", "description": "", "date": "2026-09-15"
+        }).status_code == 422
+        rows = client.get("/api/expenses").json()
+        assert next(x for x in rows if x["id"] == eid)["amount"] == 20
+
+
+class TestSearchFilterAPI:
+    """搜索 / 筛选 API 测试"""
+
+    def _seed(self, client):
+        client.post("/api/expenses", json={
+            "amount": 10, "category": "餐饮", "description": "食堂午饭", "date": "2026-09-10"})
+        client.post("/api/expenses", json={
+            "amount": 50, "category": "交通", "description": "地铁月卡", "date": "2026-09-20"})
+        client.post("/api/expenses", json={
+            "amount": 200, "category": "购物", "description": "买鞋", "date": "2026-10-05"})
+
+    def test_keyword_matches_description(self, client):
+        self._seed(client)
+        data = client.get("/api/expenses", params={"keyword": "地铁"}).json()
+        assert len(data) == 1
+        assert data[0]["category"] == "交通"
+
+    def test_keyword_matches_category(self, client):
+        self._seed(client)
+        data = client.get("/api/expenses", params={"keyword": "购物"}).json()
+        assert len(data) == 1
+        assert data[0]["description"] == "买鞋"
+
+    def test_filter_by_category(self, client):
+        self._seed(client)
+        data = client.get("/api/expenses", params={"category": "餐饮"}).json()
+        assert len(data) == 1
+        assert data[0]["description"] == "食堂午饭"
+
+    def test_filter_by_date_range(self, client):
+        self._seed(client)
+        data = client.get("/api/expenses", params={
+            "date_from": "2026-09-15", "date_to": "2026-09-30"}).json()
+        assert len(data) == 1
+        assert data[0]["category"] == "交通"
+
+    def test_filter_by_amount_range(self, client):
+        self._seed(client)
+        data = client.get("/api/expenses", params={"min_amount": 40, "max_amount": 100}).json()
+        assert len(data) == 1
+        assert data[0]["amount"] == 50
+
+    def test_combined_filters(self, client):
+        self._seed(client)
+        data = client.get("/api/expenses", params={"keyword": "地铁", "min_amount": 100}).json()
+        assert data == []
+
+
+class TestBackupRestoreAPI:
+    """备份 / 恢复 API 测试"""
+
+    def test_backup_structure(self, client):
+        client.post("/api/expenses", json={
+            "amount": 12, "category": "餐饮", "description": "x", "date": "2026-09-15"})
+        client.put("/api/budget", json={"amount": 800})
+        response = client.get("/api/backup")
+        assert response.status_code == 200
+        data = response.json()
+        assert data["version"] == "3.0"
+        assert len(data["expenses"]) == 1
+        assert len(data["categories"]) >= 8
+        assert data["budget"] == 800
+
+    def test_restore_replaces_all_data(self, client):
+        client.post("/api/expenses", json={
+            "amount": 12, "category": "餐饮", "description": "旧", "date": "2026-09-15"})
+        response = client.post("/api/restore", json={
+            "version": "3.0",
+            "expenses": [
+                {"amount": 30, "category": "交通", "description": "新记录1", "date": "2026-10-01"},
+                {"amount": 40, "category": "学习", "description": "新记录2", "date": "2026-10-02"},
+            ],
+            "categories": [],
+            "budget": 1500,
+        })
+        assert response.status_code == 200
+        rows = client.get("/api/expenses").json()
+        assert len(rows) == 2
+        assert all("新记录" in x["description"] for x in rows)
+        assert client.get("/api/budget").json()["monthly_budget"] == 1500
+
+    def test_restore_rejects_bad_amount(self, client):
+        response = client.post("/api/restore", json={
+            "expenses": [
+                {"amount": -1, "category": "餐饮", "description": "", "date": "2026-09-15"}],
+        })
+        assert response.status_code == 400
+
+    def test_restore_rejects_bad_date(self, client):
+        response = client.post("/api/restore", json={
+            "expenses": [
+                {"amount": 1, "category": "餐饮", "description": "", "date": "2026-9-5"}],
+        })
+        assert response.status_code == 400
+
+    def test_restore_keeps_default_categories(self, client):
+        """恢复一份不含默认分类的备份，内置的 8 个分类不能被清掉"""
+        response = client.post("/api/restore", json={"expenses": [], "categories": []})
+        assert response.status_code == 200
+        categories = client.get("/api/categories").json()
+        assert len([c for c in categories if c["is_default"]]) >= 8
+
+    def test_backup_restore_roundtrip(self, client):
+        for i in range(3):
+            client.post("/api/expenses", json={
+                "amount": 10 + i, "category": "餐饮", "description": f"r{i}", "date": "2026-09-15"})
+        backup = client.get("/api/backup").json()
+
+        client.post("/api/restore", json={"expenses": [], "categories": []})
+        assert client.get("/api/expenses").json() == []
+
+        client.post("/api/restore", json=backup)
+        rows = client.get("/api/expenses").json()
+        assert len(rows) == 3
+        assert sorted(r["description"] for r in rows) == ["r0", "r1", "r2"]

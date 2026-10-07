@@ -12,7 +12,7 @@ import sqlite3
 import sys
 from contextlib import asynccontextmanager
 from datetime import date, datetime
-from typing import Any, List, Optional
+from typing import Any, Dict, List, Optional
 
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.encoders import jsonable_encoder
@@ -112,6 +112,16 @@ class BudgetResponse(BaseModel):
     percentage: float
 
 
+class RestorePayload(BaseModel):
+    """恢复备份的请求体。字段放宽松（备份可能来自不同版本），
+    逐条记录的合法性在路由里校验后才写入。"""
+
+    version: Optional[str] = None
+    expenses: List[Dict[str, Any]] = Field(default_factory=list)
+    categories: List[Dict[str, Any]] = Field(default_factory=list)
+    budget: Optional[float] = None
+
+
 class Database:
     def __init__(self, db_name="campus_expenses.db"):
         self.db_name = db_name
@@ -181,7 +191,17 @@ class Database:
         self.conn.commit()
         return c.lastrowid, now
 
-    def get_expenses(self, year=None, month=None):
+    def get_expenses(
+        self,
+        year=None,
+        month=None,
+        keyword=None,
+        category=None,
+        date_from=None,
+        date_to=None,
+        min_amount=None,
+        max_amount=None,
+    ):
         c = self.conn.cursor()
         # 原先要求 year 和 month 必须同时给出，否则静默返回全量，
         # 调用方只传 year 时会以为筛选生效了
@@ -193,9 +213,44 @@ class Database:
         if month is not None:
             conditions.append("strftime('%m', date) = ?")
             params.append(f"{month:02d}")
+        if keyword:
+            # 描述或分类里任一处命中即算匹配
+            conditions.append("(description LIKE ? OR category LIKE ?)")
+            like = f"%{keyword}%"
+            params.extend([like, like])
+        if category:
+            conditions.append("category = ?")
+            params.append(category)
+        if date_from:
+            conditions.append("date >= ?")
+            params.append(date_from)
+        if date_to:
+            conditions.append("date <= ?")
+            params.append(date_to)
+        if min_amount is not None:
+            conditions.append("amount >= ?")
+            params.append(min_amount)
+        if max_amount is not None:
+            conditions.append("amount <= ?")
+            params.append(max_amount)
         where = f"WHERE {' AND '.join(conditions)} " if conditions else ""
         c.execute(f"SELECT * FROM expenses {where}ORDER BY date DESC, id DESC", params)
         return [dict(row) for row in c.fetchall()]
+
+    def get_expense(self, expense_id):
+        c = self.conn.cursor()
+        c.execute("SELECT * FROM expenses WHERE id = ?", (expense_id,))
+        row = c.fetchone()
+        return dict(row) if row else None
+
+    def update_expense(self, expense_id, amount, category, description, date_str):
+        c = self.conn.cursor()
+        c.execute(
+            "UPDATE expenses SET amount = ?, category = ?, description = ?, date = ? WHERE id = ?",
+            (amount, category, description, date_str, expense_id),
+        )
+        self.conn.commit()
+        return c.rowcount > 0
 
     def delete_expense(self, expense_id):
         c = self.conn.cursor()
@@ -255,6 +310,48 @@ class Database:
         row = c.fetchone()
         return row["monthly_budget"] if row else None
 
+    def replace_all(self, expenses, categories, budget):
+        """整库替换（恢复备份）：单事务，失败回滚，原有数据不受损。
+
+        只替换自定义分类，不动内置默认分类——这样即使恢复一份不含默认分类的
+        备份，也不会把内置的 8 个分类弄丢。
+        """
+        c = self.conn.cursor()
+        try:
+            c.execute("DELETE FROM expenses")
+            c.execute("DELETE FROM sqlite_sequence WHERE name = 'expenses'")
+            c.execute("DELETE FROM categories WHERE is_default = 0")
+            c.execute("DELETE FROM budget")
+
+            for e in expenses:
+                c.execute(
+                    "INSERT INTO expenses (id, amount, category, description, date, created_at)"
+                    " VALUES (?, ?, ?, ?, ?, ?)",
+                    (
+                        e.get("id"),
+                        e["amount"],
+                        e["category"],
+                        e.get("description") or "",
+                        e["date"],
+                        e.get("created_at") or datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+                    ),
+                )
+            for cat in categories or []:
+                if cat.get("is_default"):
+                    continue
+                c.execute(
+                    "INSERT OR IGNORE INTO categories (name, icon, is_default) VALUES (?, ?, 0)",
+                    (cat["name"], cat.get("icon", "📌")),
+                )
+            if budget is not None:
+                c.execute(
+                    "INSERT OR REPLACE INTO budget (id, monthly_budget) VALUES (1, ?)", (budget,)
+                )
+            self.conn.commit()
+        except Exception:
+            self.conn.rollback()
+            raise
+
     def close(self):
         self.conn.close()
 
@@ -294,10 +391,21 @@ async def health_check():
 
 
 @app.get("/api/expenses", response_model=List[ExpenseResponse])
-async def get_expenses(year: Optional[int] = None, month: Optional[int] = None):
+async def get_expenses(
+    year: Optional[int] = None,
+    month: Optional[int] = None,
+    keyword: Optional[str] = None,
+    category: Optional[str] = None,
+    date_from: Optional[str] = None,
+    date_to: Optional[str] = None,
+    min_amount: Optional[float] = None,
+    max_amount: Optional[float] = None,
+):
     if month is not None and not (1 <= month <= 12):
         raise HTTPException(status_code=400, detail="月份必须在1-12之间")
-    expenses = db.get_expenses(year, month)
+    expenses = db.get_expenses(
+        year, month, keyword, category, date_from, date_to, min_amount, max_amount
+    )
     return expenses
 
 
@@ -328,6 +436,23 @@ async def delete_expense(expense_id: int):
     if not db.delete_expense(expense_id):
         raise HTTPException(status_code=404, detail="记录不存在")
     return {"message": "删除成功"}
+
+
+@app.put("/api/expenses/{expense_id}", response_model=ExpenseResponse)
+async def update_expense(expense_id: int, expense: ExpenseCreate):
+    if not DATE_PATTERN.match(expense.date):
+        raise HTTPException(status_code=400, detail="日期格式错误，应为YYYY-MM-DD")
+    try:
+        parsed = datetime.strptime(expense.date, "%Y-%m-%d").date()
+    except ValueError:
+        raise HTTPException(status_code=400, detail="日期不存在")
+
+    if not db.update_expense(
+        expense_id, expense.amount, expense.category, expense.description, parsed.isoformat()
+    ):
+        raise HTTPException(status_code=404, detail="记录不存在")
+
+    return db.get_expense(expense_id)
 
 
 @app.get("/api/categories", response_model=List[CategoryResponse])
@@ -402,6 +527,34 @@ async def export_csv():
         media_type="text/csv; charset=utf-8",
         headers={"Content-Disposition": f"attachment; filename={filename}"},
     )
+
+
+@app.get("/api/backup")
+async def backup_data():
+    # 全量 JSON 备份：单机应用的"保命"接口，含记录 / 分类 / 预算
+    return {
+        "version": "3.0",
+        "exported_at": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+        "expenses": db.get_expenses(),
+        "categories": db.get_categories(),
+        "budget": db.get_budget(),
+    }
+
+
+@app.post("/api/restore")
+async def restore_data(payload: RestorePayload):
+    # 写入前逐条校验：坏备份宁可整包拒绝，也不要写进半个库
+    for e in payload.expenses:
+        amount = e.get("amount")
+        if not isinstance(amount, (int, float)) or isinstance(amount, bool) or amount <= 0:
+            raise HTTPException(status_code=400, detail="备份格式错误：记录金额非法")
+        if not isinstance(e.get("category"), str) or not e["category"]:
+            raise HTTPException(status_code=400, detail="备份格式错误：记录缺少分类")
+        if not isinstance(e.get("date"), str) or not DATE_PATTERN.match(e["date"]):
+            raise HTTPException(status_code=400, detail=f"备份中有非法日期：{e.get('date')}")
+
+    db.replace_all(payload.expenses, payload.categories, payload.budget)
+    return {"message": f"恢复成功：{len(payload.expenses)} 条记录"}
 
 
 if __name__ == "__main__":

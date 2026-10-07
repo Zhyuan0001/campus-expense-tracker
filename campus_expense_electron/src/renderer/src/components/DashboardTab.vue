@@ -1,5 +1,5 @@
 <template>
-  <div class="dashboard-tab" v-loading="loading">
+  <div ref="dashboardRef" class="dashboard-tab" v-loading="loading">
     <div class="stat-cards">
       <el-card class="stat-card" shadow="hover">
         <div class="stat-card-inner">
@@ -101,15 +101,11 @@
 
 <script setup lang="ts">
 import { ref, computed, onMounted, onBeforeUnmount, nextTick } from 'vue'
-import {
-  Wallet, TrendCharts, Document, DataLine, PieChart, List
-} from '@element-plus/icons-vue'
+import { Wallet, TrendCharts, Document, DataLine, PieChart, List } from '@element-plus/icons-vue'
 import * as echarts from 'echarts'
 import { ElMessage } from 'element-plus'
 import { api, type Expense, type CategoryStat } from '@/api'
-import {
-  CATEGORY_COLORS, getCategoryIcon, getChartTextColor, getChartBorderColor
-} from '@/utils/constants'
+import { CATEGORY_COLORS, getCategoryIcon, getChartTextColor, getChartBorderColor } from '@/utils/constants'
 
 const loading = ref(false)
 const monthlyTotal = ref(0)
@@ -121,10 +117,12 @@ const categoryData = ref<CategoryStat[]>([])
 const trendData = ref<{ month: string; total: number }[]>([])
 const recentExpenses = ref<Expense[]>([])
 
+const dashboardRef = ref<HTMLElement>()
 const pieChartRef = ref<HTMLElement>()
 const lineChartRef = ref<HTMLElement>()
 let pieChart: echarts.ECharts | null = null
 let lineChart: echarts.ECharts | null = null
+let resizeObserver: ResizeObserver | null = null
 
 const dailyAvg = computed(() => {
   const day = new Date().getDate()
@@ -144,22 +142,24 @@ const renderPieChart = (): void => {
   if (!pieChart) pieChart = echarts.init(pieChartRef.value)
   pieChart.setOption({
     tooltip: { trigger: 'item', formatter: '{b}: ¥{c} ({d}%)' },
-    series: [{
-      type: 'pie',
-      radius: ['45%', '72%'],
-      center: ['50%', '55%'],
-      itemStyle: { borderRadius: 6, borderColor: getChartBorderColor(), borderWidth: 2 },
-      label: { show: false },
-      emphasis: {
-        label: { show: true, fontSize: 14, fontWeight: 'bold', color: getChartTextColor() },
-        itemStyle: { shadowBlur: 10, shadowColor: 'rgba(0,0,0,0.15)' }
-      },
-      data: categoryData.value.map((item, i) => ({
-        value: item.total,
-        name: item.category,
-        itemStyle: { color: CATEGORY_COLORS[i % CATEGORY_COLORS.length] }
-      }))
-    }]
+    series: [
+      {
+        type: 'pie',
+        radius: ['45%', '72%'],
+        center: ['50%', '55%'],
+        itemStyle: { borderRadius: 6, borderColor: getChartBorderColor(), borderWidth: 2 },
+        label: { show: false },
+        emphasis: {
+          label: { show: true, fontSize: 14, fontWeight: 'bold', color: getChartTextColor() },
+          itemStyle: { shadowBlur: 10, shadowColor: 'rgba(0,0,0,0.15)' }
+        },
+        data: categoryData.value.map((item, i) => ({
+          value: item.total,
+          name: item.category,
+          itemStyle: { color: CATEGORY_COLORS[i % CATEGORY_COLORS.length] }
+        }))
+      }
+    ]
   })
 }
 
@@ -171,21 +171,23 @@ const renderLineChart = (): void => {
     grid: { left: '10%', right: '5%', top: '10%', bottom: '15%' },
     xAxis: {
       type: 'category',
-      data: trendData.value.map(d => d.month),
+      data: trendData.value.map((d) => d.month),
       axisLabel: { fontSize: 11, color: getChartTextColor() }
     },
     yAxis: {
       type: 'value',
       axisLabel: { formatter: '¥{value}', fontSize: 11, color: getChartTextColor() }
     },
-    series: [{
-      type: 'line',
-      smooth: true,
-      areaStyle: { opacity: 0.12 },
-      lineStyle: { width: 3, color: '#6366F1' },
-      itemStyle: { color: '#6366F1' },
-      data: trendData.value.map(d => d.total)
-    }]
+    series: [
+      {
+        type: 'line',
+        smooth: true,
+        areaStyle: { opacity: 0.12 },
+        lineStyle: { width: 3, color: '#6366F1' },
+        itemStyle: { color: '#6366F1' },
+        data: trendData.value.map((d) => d.total)
+      }
+    ]
   })
 }
 
@@ -220,7 +222,7 @@ const loadData = async (): Promise<void> => {
       months.push({ d, label: `${d.getMonth() + 1}月` })
     }
     const results = await Promise.all(
-      months.map(m => api.getStatistics(m.d.getFullYear(), m.d.getMonth() + 1))
+      months.map((m) => api.getStatistics(m.d.getFullYear(), m.d.getMonth() + 1))
     )
     trendData.value = months.map((m, i) => ({
       month: m.label,
@@ -236,18 +238,21 @@ const loadData = async (): Promise<void> => {
   renderLineChart()
 }
 
-const handleResize = (): void => {
-  pieChart?.resize()
-  lineChart?.resize()
-}
-
 onMounted(() => {
   loadData()
-  window.addEventListener('resize', handleResize)
+  // 用 ResizeObserver 跟"容器"走：窗口缩放、侧栏折叠都会改变内容区宽度，
+  // 而 window.resize 在侧栏折叠时并不触发，图表会保持旧宽度
+  if (dashboardRef.value && typeof ResizeObserver !== 'undefined') {
+    resizeObserver = new ResizeObserver(() => {
+      pieChart?.resize()
+      lineChart?.resize()
+    })
+    resizeObserver.observe(dashboardRef.value)
+  }
 })
 
 onBeforeUnmount(() => {
-  window.removeEventListener('resize', handleResize)
+  resizeObserver?.disconnect()
   pieChart?.dispose()
   lineChart?.dispose()
 })
@@ -263,9 +268,10 @@ onBeforeUnmount(() => {
   min-height: 200px;
 }
 
+/* auto-fit：列数随可用宽度连续变化，不必为每个断点各写一条规则 */
 .stat-cards {
   display: grid;
-  grid-template-columns: repeat(4, 1fr);
+  grid-template-columns: repeat(auto-fit, minmax(min(220px, 100%), 1fr));
   gap: 16px;
 }
 
@@ -310,7 +316,7 @@ onBeforeUnmount(() => {
 
 .charts-row {
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: repeat(auto-fit, minmax(min(360px, 100%), 1fr));
   gap: 16px;
 }
 
@@ -319,7 +325,8 @@ onBeforeUnmount(() => {
 }
 
 .chart {
-  height: 260px;
+  /* 高度跟随视口，矮窗自动压缩 */
+  height: clamp(200px, 32vh, 300px);
 }
 
 .card-header {
@@ -337,20 +344,5 @@ onBeforeUnmount(() => {
 .amount {
   font-weight: 600;
   color: var(--el-color-danger);
-}
-
-@media (max-width: 900px) {
-  .stat-cards {
-    grid-template-columns: repeat(2, 1fr);
-  }
-  .charts-row {
-    grid-template-columns: 1fr;
-  }
-}
-
-@media (max-width: 600px) {
-  .stat-cards {
-    grid-template-columns: 1fr;
-  }
 }
 </style>

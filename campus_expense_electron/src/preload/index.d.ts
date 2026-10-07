@@ -2,6 +2,7 @@ interface ElectronAPI {
   getAppVersion: () => Promise<string>
   getUserDataPath: () => Promise<string>
   saveCsv: (content: string, defaultName: string) => Promise<string | null>
+  saveJson: (content: string, defaultName: string) => Promise<string | null>
 }
 
 interface Window {

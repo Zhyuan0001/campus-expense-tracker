@@ -167,8 +167,9 @@ function createWindow(): void {
   mainWindow = new BrowserWindow({
     width: 1200,
     height: 800,
-    minWidth: 900,
-    minHeight: 650,
+    // 放宽最小尺寸：原先 900x650 直接把窄窗/竖窗挡死，响应式布局无从谈起
+    minWidth: 400,
+    minHeight: 480,
     title: '校园消费记账系统 v3.0',
     show: false,
     webPreferences: {
@@ -211,6 +212,22 @@ function registerIpcHandlers(): void {
       // Blob.text() 按规范会剥掉 UTF-8 BOM，而 Excel 需要 BOM 才能正确识别中文，
       // 因此这里统一去掉再补回，避免出现双 BOM
       await writeFile(filePath, `\uFEFF${content.replace(/^\uFEFF/, '')}`, 'utf-8')
+      return filePath
+    }
+  )
+
+  ipcMain.handle(
+    'save-json',
+    async (_event, content: string, defaultName: string): Promise<string | null> => {
+      const { canceled, filePath } = await dialog.showSaveDialog({
+        title: '\u5BFC\u51FA\u5907\u4EFD',
+        defaultPath: defaultName,
+        filters: [{ name: 'JSON \u5907\u4EFD', extensions: ['json'] }]
+      })
+      if (canceled || !filePath) return null
+
+      // JSON \u5907\u4EFD\u4E0D\u80FD\u52A0 BOM\uFF0C\u5426\u5219 JSON.parse \u4F1A\u5931\u8D25
+      await writeFile(filePath, content, 'utf-8')
       return filePath
     }
   )

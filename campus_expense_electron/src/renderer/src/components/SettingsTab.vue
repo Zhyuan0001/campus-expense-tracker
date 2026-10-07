@@ -41,16 +41,10 @@
             />
           </el-form-item>
           <el-form-item label="图标">
-            <el-input
-              v-model="newCategory.icon"
-              placeholder="Emoji图标"
-              style="width: 100px"
-            />
+            <el-input v-model="newCategory.icon" placeholder="Emoji图标" style="width: 100px" />
           </el-form-item>
           <el-form-item>
-            <el-button type="primary" @click="addCategory" :loading="adding">
-              添加分类
-            </el-button>
+            <el-button type="primary" @click="addCategory" :loading="adding">添加分类</el-button>
           </el-form-item>
         </el-form>
 
@@ -97,13 +91,43 @@
       </template>
 
       <div class="export-section">
-        <p style="color: var(--el-text-color-secondary); margin-bottom: 16px">
-          导出所有消费记录为CSV文件，可用于备份或数据分析
-        </p>
+        <p class="section-hint">导出所有消费记录为 CSV 文件，可用 Excel 打开或做数据分析。</p>
         <el-button type="primary" size="large" @click="exportData" :loading="exporting">
           <el-icon><Download /></el-icon>
-          导出CSV
+          导出 CSV
         </el-button>
+      </div>
+    </el-card>
+
+    <el-card shadow="hover" class="settings-card">
+      <template #header>
+        <div class="card-header">
+          <el-icon :size="20"><Upload /></el-icon>
+          <h2>数据备份与恢复</h2>
+        </div>
+      </template>
+
+      <div class="backup-section">
+        <p class="section-hint">
+          备份包含全部记录、分类与预算（JSON 文件）；恢复会覆盖当前全部数据，请谨慎操作。
+        </p>
+        <div class="backup-actions">
+          <el-button type="primary" size="large" @click="backupData" :loading="backingUp">
+            <el-icon><Download /></el-icon>
+            备份数据
+          </el-button>
+          <el-button size="large" @click="triggerRestore" :loading="restoring">
+            <el-icon><Upload /></el-icon>
+            从备份恢复
+          </el-button>
+          <input
+            ref="fileInputRef"
+            type="file"
+            accept=".json,application/json"
+            class="hidden-file"
+            @change="onFileSelected"
+          />
+        </div>
       </div>
     </el-card>
 
@@ -119,7 +143,9 @@
         <el-descriptions :column="1" border>
           <el-descriptions-item label="应用名称">校园消费记账系统</el-descriptions-item>
           <el-descriptions-item label="版本">{{ appVersion }} (Electron)</el-descriptions-item>
-          <el-descriptions-item label="技术栈">Electron + Vue3 + TypeScript + Element Plus + FastAPI</el-descriptions-item>
+          <el-descriptions-item label="技术栈"
+            >Electron + Vue3 + TypeScript + Element Plus + FastAPI</el-descriptions-item
+          >
           <el-descriptions-item label="特点">
             <el-tag type="success">便携版</el-tag>
             <el-tag type="success">现代化UI</el-tag>
@@ -134,8 +160,17 @@
 
 <script setup lang="ts">
 import { ref, onMounted } from 'vue'
-import { Setting, Delete, Download, InfoFilled, Brush, Moon, Sunny } from '@element-plus/icons-vue'
-import { ElMessage } from 'element-plus'
+import {
+  Setting,
+  Delete,
+  Download,
+  Upload,
+  InfoFilled,
+  Brush,
+  Moon,
+  Sunny
+} from '@element-plus/icons-vue'
+import { ElMessage, ElMessageBox } from 'element-plus'
 import { api, type Category } from '@/api'
 import { useTheme } from '@/composables/useTheme'
 import { todayLocal } from '@/utils/constants'
@@ -145,10 +180,13 @@ const appVersion = ref('3.0.1')
 const categories = ref<Category[]>([])
 const adding = ref(false)
 const exporting = ref(false)
+const backingUp = ref(false)
+const restoring = ref(false)
 const newCategory = ref({
   name: '',
   icon: '📌'
 })
+const fileInputRef = ref<HTMLInputElement>()
 
 const loadCategories = async (): Promise<void> => {
   try {
@@ -219,6 +257,75 @@ const exportData = async (): Promise<void> => {
   }
 }
 
+const backupData = async (): Promise<void> => {
+  backingUp.value = true
+  try {
+    const res = await api.getBackup()
+    const json = JSON.stringify(res.data, null, 2)
+    const defaultName = `campus-backup-${todayLocal()}.json`
+
+    if (window.electronAPI?.saveJson) {
+      const savedPath = await window.electronAPI.saveJson(json, defaultName)
+      if (savedPath) ElMessage.success(`已备份到 ${savedPath}`)
+      return
+    }
+
+    const url = window.URL.createObjectURL(new Blob([json], { type: 'application/json' }))
+    const link = document.createElement('a')
+    link.href = url
+    link.setAttribute('download', defaultName)
+    document.body.appendChild(link)
+    link.click()
+    link.remove()
+    window.URL.revokeObjectURL(url)
+    ElMessage.success('备份已下载')
+  } catch {
+    ElMessage.error('备份失败')
+  } finally {
+    backingUp.value = false
+  }
+}
+
+const triggerRestore = (): void => {
+  fileInputRef.value?.click()
+}
+
+const onFileSelected = async (event: Event): Promise<void> => {
+  const input = event.target as HTMLInputElement
+  const file = input.files?.[0]
+  input.value = '' // 清空，允许再次选择同一个文件
+  if (!file) return
+
+  let payload: unknown
+  try {
+    payload = JSON.parse(await file.text())
+  } catch {
+    ElMessage.error('文件不是合法的 JSON 备份')
+    return
+  }
+
+  try {
+    await ElMessageBox.confirm('恢复将覆盖当前全部记录，且无法撤销。确定继续吗？', '确认恢复', {
+      type: 'warning',
+      confirmButtonText: '确定恢复',
+      cancelButtonText: '取消'
+    })
+  } catch {
+    return // 用户取消
+  }
+
+  restoring.value = true
+  try {
+    const res = await api.restoreBackup(payload)
+    ElMessage.success(res.data.message)
+    await loadCategories()
+  } catch (error: any) {
+    ElMessage.error(error.response?.data?.detail || '恢复失败')
+  } finally {
+    restoring.value = false
+  }
+}
+
 onMounted(async () => {
   loadCategories()
   const version = await window.electronAPI?.getAppVersion()
@@ -272,7 +379,24 @@ onMounted(async () => {
 }
 
 .export-section,
+.backup-section,
 .about-section {
   padding: 12px 0;
+}
+
+.section-hint {
+  color: var(--el-text-color-secondary);
+  margin-bottom: 16px;
+  line-height: 1.6;
+}
+
+.backup-actions {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.hidden-file {
+  display: none;
 }
 </style>

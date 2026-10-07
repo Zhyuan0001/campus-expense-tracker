@@ -18,12 +18,14 @@
       >
         <el-form-item label="金额" prop="amount">
           <el-input-number
+            ref="amountRef"
             v-model="form.amount"
             :min="0.01"
             :precision="2"
             :step="10"
             placeholder="请输入金额"
             style="width: 100%"
+            @keyup.enter="submitForm"
           />
         </el-form-item>
 
@@ -46,6 +48,7 @@
             placeholder="添加描述（可选）"
             maxlength="200"
             show-word-limit
+            @keyup.enter.prevent="submitForm"
           />
         </el-form-item>
 
@@ -104,6 +107,7 @@ import { api } from '@/api'
 import { todayLocal } from '@/utils/constants'
 
 const formRef = ref<FormInstance>()
+const amountRef = ref<{ focus: () => void }>()
 const categories = ref<{ id: number; name: string; icon: string }[]>([])
 const submitting = ref(false)
 const monthlyTotal = ref(0)
@@ -123,12 +127,8 @@ const rules: FormRules = {
     { required: true, message: '请输入金额', trigger: 'blur' },
     { type: 'number', min: 0.01, message: '金额必须大于0', trigger: 'blur' }
   ],
-  category: [
-    { required: true, message: '请选择分类', trigger: 'change' }
-  ],
-  date: [
-    { required: true, message: '请选择日期', trigger: 'change' }
-  ]
+  category: [{ required: true, message: '请选择分类', trigger: 'change' }],
+  date: [{ required: true, message: '请选择日期', trigger: 'change' }]
 }
 
 const loadCategories = async (): Promise<void> => {
@@ -177,6 +177,8 @@ const submitForm = async (): Promise<void> => {
       formRef.value?.resetFields()
 
       await loadMonthlyStats()
+      // 连续记账：清空后把焦点送回金额框
+      amountRef.value?.focus()
     } catch (error: any) {
       ElMessage.error(error.response?.data?.detail || '保存失败')
     } finally {
@@ -188,6 +190,8 @@ const submitForm = async (): Promise<void> => {
 onMounted(() => {
   loadCategories()
   loadMonthlyStats()
+  // 打开页面即聚焦金额框：记账是高频操作，省去一次点击
+  amountRef.value?.focus()
 })
 </script>
 
@@ -224,7 +228,7 @@ onMounted(() => {
 
 .overview-stats {
   display: grid;
-  grid-template-columns: repeat(2, 1fr);
+  grid-template-columns: repeat(auto-fit, minmax(min(140px, 100%), 1fr));
   gap: 24px;
   padding: 12px 0;
 }
