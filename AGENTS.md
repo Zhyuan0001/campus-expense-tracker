@@ -1,10 +1,11 @@
 # AGENTS.md - 校园消费记账系统
 
 ## 项目概述
-大学生生活费记账桌面应用。支持记录消费、分类统计（含饼图可视化）、月度分析、预算提醒、自定义分类、数据导出 CSV、亮/暗主题切换。
+大学生生活费记账桌面应用。支持记录消费、分类统计（含饼图可视化）、月度分析、预算提醒、自定义分类、数据导出 CSV、亮/暗主题切换；v3.1.0 起增加记录编辑、搜索筛选、备份恢复与多比例响应式布局。
 
-**当前版本**：v3.0 - Electron 便携版（推荐）
+**当前版本**：v3.1.0 - Electron 便携版（推荐）
 **历史版本**：
+- v3.0 - Electron 便携版（首版）
 - v2.0 - 现代 Web 技术栈版本（pywebview）
 - v1.0 - PyQt5 版本（保留用于学习对比）
 
@@ -144,32 +145,39 @@ pytest test_expense_tracker.py -v
 
 ```
 SofteareEnjineer/
-├── campus_expense_electron/          # v3.0 Electron 便携版（推荐）
+├── campus_expense_electron/          # v3.1.0 Electron 便携版（推荐）
 │   ├── package.json                  # Electron 项目配置
 │   ├── electron.vite.config.ts       # electron-vite 构建配置
+│   ├── vitest.config.ts              # 渲染层测试配置
 │   ├── backend.spec                  # PyInstaller 打包配置（路径相对于本目录）
 │   ├── resources/
 │   │   └── backend/                  # 打包后的后端可执行文件（gitignore，CI 生成）
 │   ├── src/
 │   │   ├── main/
-│   │   │   └── index.ts              # Electron 主进程（后端生命周期管理）
+│   │   │   └── index.ts              # Electron 主进程（后端生命周期/单实例锁/错误提示/IPC）
 │   │   ├── preload/
-│   │   │   └── index.ts              # 预加载脚本
+│   │   │   └── index.ts              # 预加载脚本（contextBridge：版本号、另存为）
 │   │   └── renderer/
 │   │       ├── index.html            # 前端入口
 │   │       └── src/
-│   │           ├── main.ts           # Vue3 入口
-│   │           ├── App.vue           # 主应用组件
+│   │           ├── main.ts           # Vue3 入口（注册 Element Plus + 中文 locale）
+│   │           ├── App.vue           # 主应用组件（按 navMode 切换导航形态）
 │   │           ├── style.css         # 全局样式（Indigo主题）
 │   │           ├── api/
 │   │           │   └── index.ts      # 统一 API 层
+│   │           ├── composables/
+│   │           │   ├── useTheme.ts   # 主题（localStorage 持久化）
+│   │           │   └── useLayout.ts  # 多比例响应式（navMode / cols / 形状判断）
+│   │           ├── utils/
+│   │           │   └── constants.ts  # 分类配色、图标、todayLocal() 等共享工具
+│   │           ├── __tests__/        # 渲染层 vitest 组件测试（32 个用例）
 │   │           └── components/
-│   │               ├── DashboardTab.vue  # 仪表盘（新增）
+│   │               ├── DashboardTab.vue  # 仪表盘
 │   │               ├── ExpenseTab.vue    # 记账 Tab
-│   │               ├── RecordsTab.vue    # 记录 Tab
+│   │               ├── RecordsTab.vue    # 记录 Tab（含搜索筛选与编辑弹窗）
 │   │               ├── StatisticsTab.vue # 统计 Tab
 │   │               ├── BudgetTab.vue     # 预算 Tab
-│   │               └── SettingsTab.vue   # 设置 Tab
+│   │               └── SettingsTab.vue   # 设置 Tab（含备份恢复、主题、分类管理）
 │   └── dist/                         # 构建输出（electron-builder）
 │
 ├── campus_expense_web/              # v2.0 现代 Web 版本（历史）
@@ -195,14 +203,18 @@ SofteareEnjineer/
 │
 ├── campus_expense_tracker.py        # v1.0 PyQt5 版本（历史）
 ├── test_expense_tracker.py          # v1.0 单元测试
+├── docs/
+│   └── upgrade-research/            # v3.1.0 升级调研报告（功能矩阵/响应式/代码审计/开发环境）
 ├── .github/
 │   └── workflows/
+│       ├── ci.yml                   # push 时并行跑 4 路检查（后端/旧前端/渲染层/代码规范）
 │       └── build-windows.yml        # 推 v* 标签时构建 Windows exe 并发布 Release
-├── DESIGN.md                        # 设计文档
-├── AGENTS.md                        # 本文件
-├── iteration_log.md                 # 迭代记录
-├── PLAN.md                          # 迭代计划
-├── PPT_PREPARATION.md               # 答辩材料
+├── DESIGN.md                        # 设计文档（含 v3.0 实现偏差说明）
+├── AGENTS.md                        # 本文件（给 AI 智能体的项目说明书）
+├── iteration_log.md                 # 迭代记录（完整版，含全部轮次）
+├── ITERATION_AND_INSIGHTS.md        # 迭代记录与心得（课程提交版，可直接发布博客）
+├── PLAN.md                          # 实施计划
+├── PPT_PREPARATION.md               # 答辩演示材料
 ├── WINDOWS_BUILD_GUIDE.md           # Windows 构建指南（CI + 本地）
 └── .gitignore
 ```
@@ -222,8 +234,10 @@ SofteareEnjineer/
 - `GET /api/health` - 健康检查（Electron 主进程用它做启动探活）
 
 ### 消费记录
-- `GET /api/expenses?year=&month=` - 获取消费记录列表；year/month 可单独或组合使用，month 必须在 1-12
+- `GET /api/expenses` - 获取消费记录列表；支持 year / month（可单独或组合，month 必须在 1-12）
+  以及 keyword / category / date_from / date_to / min_amount / max_amount 筛选
 - `POST /api/expenses` - 创建消费记录；amount 必须 >0 且为有限数，date 必须为严格补零的 YYYY-MM-DD 且真实存在
+- `PUT /api/expenses/{id}` - 编辑消费记录（v3.1.0 新增），校验规则与创建一致
 - `DELETE /api/expenses/{id}` - 删除消费记录，不存在返回 404
 
 ### 分类管理
@@ -241,6 +255,10 @@ SofteareEnjineer/
 ### 数据导出
 - `GET /api/export` - 导出全部记录为 CSV（内存生成，utf-8-sig 带 BOM，表头 ID,日期,分类,描述,金额）
 
+### 备份与恢复（v3.1.0 新增）
+- `GET /api/backup` - 导出全量 JSON 备份（记录 + 分类 + 预算 + 导出时间）
+- `POST /api/restore` - 从备份恢复；**整库替换**，前端调用前必须二次确认
+
 ### 关于主题
 主题（亮/暗）**没有后端接口**，由渲染层 localStorage 持久化（见 F8）。
 数据库中的 `settings` 表按设计保留但当前未使用。
@@ -256,12 +274,12 @@ SofteareEnjineer/
 
 ## 测试说明
 
-### v3.0 Electron 便携版（当前）
+### v3.1.0 Electron 便携版（当前）
 - 后端 API 测试：`cd campus_expense_web/backend && python -m pytest tests/ -v`
-  30 个用例（含 Infinity/NaN、非补零日期、空白分类名、CSV 字节内容、统计口径一致性等
-  回归用例），覆盖率 97%
+  47 个用例（含 Infinity/NaN、非补零日期、空白分类名、CSV 字节内容、统计口径一致性、
+  编辑与备份恢复等回归用例），覆盖率 95%
 - 渲染层组件测试：`cd campus_expense_electron && npm run test:run`
-  vitest + @vue/test-utils + jsdom，覆盖 6 个页面组件与主题 composable
+  vitest + @vue/test-utils + jsdom，32 个用例，覆盖 6 个页面组件与主题/布局 composable
 - 类型检查：`cd campus_expense_electron && npm run typecheck`（node 与 web 两套 tsconfig）
 - 以上三项由 `.github/workflows/ci.yml` 在每次 push 时自动执行
 - 手工验证：Swagger UI（http://localhost:8000/docs）

@@ -1,4 +1,4 @@
-# 校园消费记账系统 v3.0 - PPT 演示材料
+# 校园消费记账系统 v3.1.0 - PPT 演示材料
 
 ## 一、项目概述
 
@@ -12,13 +12,17 @@
 **便携式桌面应用** - "哪里解压哪里运行，数据随身携带"
 
 ### 1.3 核心功能
-- ✅ 快速记账（消费记录增删改查）
+- ✅ 快速记账（消费记录增删查）
+- ✅ **记录编辑**（行内编辑金额/分类/描述/日期）
+- ✅ **搜索与筛选**（关键词、分类、日期区间、金额区间）
 - ✅ 分类统计（饼图可视化）
 - ✅ 月度分析（仪表盘总览）
-- ✅ 预算提醒（进度条监控）
+- ✅ 预算提醒（进度条监控，三色状态）
 - ✅ 数据导出（CSV 格式）
+- ✅ **备份与恢复**（JSON 全量备份，恢复前二次确认）
 - ✅ 主题切换（亮/暗模式）
 - ✅ 自定义分类（个性化管理）
+- ✅ **多比例响应式**（侧边栏 / 图标轨 / 底部栏三态自适应）
 
 ---
 
@@ -252,25 +256,62 @@ function getDbPath(): string {
 - 双层打包方案复杂，但便携性强
 - Web 技术栈开发效率高，UI 美化容易
 
+### v3.1.0 - 调研驱动的功能升级（2026-10-07）
+
+**做法**：先调研再动手，不做"拍脑袋加功能"。两份调研报告见 `docs/upgrade-research/`。
+
+**调研结论（对标约 20 款记账应用 + 桌面应用缩放方案）**：
+- 本项目**缺「编辑记录」**——竞品里属必备功能，只能删了重记是"合格硬伤"
+- 竞品教训反复提到"数据丢失/停止维护是致命伤" → **备份/恢复**优先级提至 P0
+- 缺**搜索与筛选**，记录一多就找不到
+- 现状 `minWidth: 900` 把竖窗形态挡死，侧栏 220px 常驻无折叠
+
+**本版实现**：
+
+| 方向 | 改动 |
+|------|------|
+| 记录编辑 | 新增 `PUT /api/expenses/{id}`；记录页每行加编辑按钮，弹窗改金额/分类/描述/日期 |
+| 搜索筛选 | 记录页加关键词搜索（描述/分类）、分类下拉、筛选/重置、匹配条数提示；后端 `GET /api/expenses` 支持 keyword / category / date_from / date_to / min_amount / max_amount |
+| 备份恢复 | 新增 `GET /api/backup`（JSON 全量）与 `POST /api/restore`（整库替换）；设置页加"数据备份与恢复"卡片，恢复前二次确认 |
+| 多比例响应式 | 新增 `composables/useLayout.ts`，按窗口尺寸与长宽比输出 `navMode`（侧边栏 / 图标轨 / 底部栏）、`cols` 等；断点沿用 Windows 官方分级并叠加"竖窗""超宽"两个形状判断 |
+
+**验证**：后端测试 30 → **47 个**（覆盖率 95%）；渲染层测试 30 → **32 个**；
+端到端实测编辑落库、关键词筛选、备份破坏恢复往返、竖窗底部栏形态。
+
 ---
 
 ## 五、测试报告
 
 ### 5.1 功能测试
 
-| 测试项 | 预期结果 | 实际结果 | 状态 |
-|--------|----------|----------|------|
-| 添加消费记录 | 成功创建，表单清空 | ✓ | ✅ |
-| 删除消费记录 | 弹窗确认，成功删除 | ✓ | ✅ |
-| 分类统计饼图 | 正确显示占比 | ✓ | ✅ |
-| 月度预算设置 | 保存成功，进度条更新 | ✓ | ✅ |
-| 主题切换 | 全局样式切换 | ✓ | ✅ |
-| 数据导出 CSV | 文件下载成功 | ✓ | ✅ |
-| 自定义分类 | 添加/删除成功 | ✓ | ✅ |
+> 端到端实测：以生产构建产物 + 真实后端，在浏览器中逐功能点击验证（2026-10-10）。
 
-### 5.2 黑盒破坏性测试
+| 测试项 | 预期结果 | 状态 |
+|--------|----------|------|
+| 添加消费记录 | 成功创建、表单清空、日期保留今天、本月概览联动 | ✅ |
+| **记录编辑** | 行内编辑按钮 → 弹窗回填正确 → 保存后列表与数据库同步更新 | ✅ |
+| **搜索与筛选** | 关键词"地铁"把 3 行筛成 1 行；分类筛选与重置可用 | ✅ |
+| 删除消费记录 | 二次确认弹窗；取消不删、确认才删 | ✅ |
+| 分类统计饼图 | 正确显示占比（实测占比合计 100.0%） | ✅ |
+| 月度预算设置 | 保存成功，进度条与三色状态正确（80% 边界为黄色） | ✅ |
+| **备份与恢复** | 备份 3 条 ¥136.5 → 删 2 条并改预算 → 恢复后数据与预算完整还原 | ✅ |
+| 主题切换 | 全局样式切换，重启后保持所选主题 | ✅ |
+| 数据导出 CSV | 表头 `ID,日期,分类,描述,金额`、utf-8-sig 带 BOM，Excel 中文不乱码 | ✅ |
+| 自定义分类 | 添加成功并同步到记账下拉框；默认分类不可删除 | ✅ |
+| **多比例响应式** | 竖窗（717×744，比例 0.96）时导航呈底部栏 | ✅ |
 
-**API 层测试（27/28 通过）**：
+### 5.2 输入校验与破坏性测试
+
+**自动化测试**（每次 push 由 CI 并行执行，四路 job）：
+
+| 范围 | 数量 | 覆盖率 | 说明 |
+|------|------|--------|------|
+| 后端 API（pytest） | **47 个** | 95% | 含 11 个回归用例，锁死下表加粗的场景 |
+| 渲染层组件（vitest） | **32 个** | — | 6 个页面组件 + 主题/布局 composable |
+| 类型检查 | tsc + vue-tsc | — | node 与 web 两套 tsconfig |
+| 代码规范 | black / isort / flake8 / prettier | — | 版本固定在 requirements-dev.txt |
+
+**逐项校验**（下表为真实 HTTP 实测；加粗行为 v3.0.1 补的回归用例）：
 
 | 测试场景 | 输入 | 预期 | 实际 | 状态 |
 |----------|------|------|------|------|
@@ -282,12 +323,24 @@ function getDbPath(): string {
 | 超长描述 | 201 字符 | 422 错误 | ✓ | ✅ |
 | 错误日期格式 | date="2026/09/29" | 400 错误 | ✓ | ✅ |
 | 空日期 | date="" | 400 错误 | ✓ | ✅ |
-| 不存在的分类 | category="不存在的" | 成功（宽松校验） | ✓ | ✅ |
-| SQL 注入 | category="'; DROP TABLE" | 存储为普通文本 | ✓ | ✅ |
-| XSS 攻击 | description="<script>alert(1)</script>" | 存储为普通文本 | ✓ | ✅ |
+| 不存在的分类 | category="不存在的" | 成功（宽松校验，无外键约束） | ✓ | ✅ |
+| SQL 注入 | category="'; DROP TABLE" | 存储为普通文本（全参数化绑定） | ✓ | ✅ |
+| XSS 攻击 | description="<script>alert(1)</script>" | 存储为普通文本，渲染时转义 | ✓ | ✅ |
 | 删除不存在的记录 | DELETE /api/expenses/99999 | 404 错误 | ✓ | ✅ |
 | 重复分类名 | POST 已存在的分类 | 400 错误 | ✓ | ✅ |
 | 删除默认分类 | DELETE 默认分类 | 400 错误 | ✓ | ✅ |
+| **非有限数金额** | amount=Infinity / NaN | **422 且绝不落库** | ✓ | ✅ |
+| **非补零日期** | date="2026-9-5" | **400** | ✓ | ✅ |
+| **不存在的日期** | date="2026-02-30" | 400 | ✓ | ✅ |
+| **空白分类名** | name="   " | **422** | ✓ | ✅ |
+| **预算非有限数** | PUT amount=Infinity | **422** | ✓ | ✅ |
+| **CSV 字节内容** | 描述含逗号/引号/换行 | RFC4180 转义 + BOM + 表头逐字符一致 | ✓ | ✅ |
+
+> **说明**：v3.0 时期曾用一份 28 项手工黑盒清单验收（当时记录 27/28），
+> 但它在 19 个单测全绿的情况下漏掉了上表加粗的 5 类真实缺陷——原因是那些测试走
+> TestClient 的内存调用，且从不发送 Infinity、非补零日期与空白分类名。
+> 其中"Infinity 落库"会让之后所有读接口永久 500、"非补零日期"会让统计与记录列表对不上账。
+> v3.0.1 起改为「真实 HTTP 黑盒 + 回归用例」双轨，这些场景已固化为自动化测试。
 
 **前端层测试**：
 - 金额输入框输入字母 → HTML5 `type="number"` 自动过滤
@@ -296,17 +349,22 @@ function getDbPath(): string {
 
 ### 5.3 便携性测试
 
-**测试场景**：
-1. 在 Linux 开发机运行开发模式 ✓
-2. 验证数据库路径正确 ✓
-3. 数据持久化测试 ✓
-4. 重启应用后数据保留 ✓
+**已在 Linux 开发机验证**：
+1. 开发模式启动，后端自动拉起、健康探活通过 ✓
+2. 数据库路径解析正确（`DB_PATH` 环境变量优先，回退到可写目录探测）✓
+3. 数据持久化，重启应用后数据保留 ✓
+4. PyInstaller 打包的后端可独立运行 ✓
+5. CI 日志确认真实打包产物中含 `resources\backend\backend.exe` ✓
 
-**预期 Windows 测试**：
-- 双击 exe 启动
-- 数据库在 exe 同目录创建
-- 数据持久化
-- 拷贝到 U 盘，在其他 Windows 电脑运行，数据保留
+**Windows 实机验证清单**（随 Release 发布的便携版 exe，需在 Windows 上执行）：
+
+- [ ] 双击 exe 启动（无黑色控制台窗口、无白屏）
+- [ ] `campus_expenses.db` 在 exe 同目录生成
+- [ ] 增删改查、图表、预算、主题、备份恢复等功能正常
+- [ ] 拷贝 exe + db 到 U 盘，在另一台 Windows 电脑运行，数据保留
+
+> 演示建议：**用 NSIS 安装版**。portable 版每次启动会把 95MB 解压到临时目录且期间无界面，
+> 存在"用户以为没点上、再点一次导致解压目录被清理"的残余风险；安装版没有这个环节。
 
 ---
 
@@ -327,36 +385,48 @@ function startBackend(): void {
   backendProcess = spawn(cmd, args, {
     cwd,
     env,
-    stdio: ['ignore', 'pipe', 'pipe']
+    stdio: ['ignore', 'pipe', 'pipe'],
+    // 后端是控制台子系统程序，不隐藏的话 Windows 会额外弹一个黑色控制台窗口
+    windowsHide: true
   })
 
   backendProcess.stdout?.on('data', (data: Buffer) => {
     console.log(`[Backend] ${data.toString().trim()}`)
   })
 
+  backendProcess.on('error', (err: Error) => {
+    // 常见于杀毒软件隔离了 backend.exe，必须给出可见提示而不是静默退出
+    dialog.showErrorBox('后端无法启动', `未能启动内置的后端服务：${err.message}`)
+  })
+
   backendProcess.on('exit', (code: number | null) => {
     console.log(`后端进程退出，退出码: ${code}`)
+    backendExitCode = code
     backendProcess = null
   })
 }
 
-function waitForBackend(maxRetries = 40, interval = 500): Promise<void> {
+// 必须校验业务健康检查接口，而不是只探测端口：
+// 端口被其它服务占用时 TCP 也能连通，窗口会照常打开，但所有请求都打到错误的服务上
+function waitForBackend(maxRetries = 120, interval = 500): Promise<void> {
   return new Promise((resolve, reject) => {
     let retries = 0
-    const check = (): void => {
-      const socket = net.createConnection(BACKEND_PORT, BACKEND_HOST, () => {
-        socket.destroy()
-        resolve()
-      })
-      socket.on('error', () => {
-        socket.destroy()
+    const check = async (): Promise<void> => {
+      try {
+        const res = await fetch(`http://${BACKEND_HOST}:${BACKEND_PORT}/api/health`)
+        if (res.ok) {
+          resolve()
+          return
+        }
+        throw new Error(`健康检查返回 ${res.status}`)
+      } catch {
         retries++
         if (retries >= maxRetries) {
-          reject(new Error('后端启动超时'))
+          reject(new Error('后端在 60 秒内未就绪'))
         } else {
           setTimeout(check, interval)
         }
-      })
+      }
     }
     check()
   })
@@ -365,29 +435,41 @@ function waitForBackend(maxRetries = 40, interval = 500): Promise<void> {
 
 ### 6.2 统一 API 层
 
+> 把原先散落在 5 个组件里的 `API_BASE` 硬编码与重复请求逻辑收敛到一处（`api/index.ts`）。
+
 ```typescript
-import axios from 'axios'
+const API_BASE = 'http://127.0.0.1:8000/api'
 
-const api = axios.create({
-  baseURL: 'http://127.0.0.1:8000/api',
-  timeout: 5000
-})
+export const api = {
+  // year/month 与筛选条件可组合；后端已做参数校验
+  getExpenses(year?: number, month?: number, filters?: {
+    keyword?: string; category?: string
+    date_from?: string; date_to?: string
+    min_amount?: number; max_amount?: number
+  }) {
+    return axios.get<Expense[]>(`${API_BASE}/expenses`, { params: { year, month, ...filters } })
+  },
 
-export const expenseApi = {
-  getList: (year?: number, month?: number) => 
-    api.get('/expenses', { params: { year, month } }),
-  create: (data: ExpenseCreate) => 
-    api.post('/expenses', data),
-  delete: (id: number) => 
-    api.delete(`/expenses/${id}`)
-}
+  createExpense(data: { amount: number; category: string; description: string; date: string }) {
+    return axios.post<Expense>(`${API_BASE}/expenses`, data)
+  },
 
-export const categoryApi = {
-  getList: () => api.get('/categories'),
-  create: (data: CategoryCreate) => 
-    api.post('/categories', data),
-  delete: (id: number) => 
-    api.delete(`/categories/${id}`)
+  updateExpense(id: number, data: { amount: number; category: string; description: string; date: string }) {
+    return axios.put<Expense>(`${API_BASE}/expenses/${id}`, data)   // v3.1.0 新增
+  },
+
+  deleteExpense(id: number) {
+    return axios.delete(`${API_BASE}/expenses/${id}`)
+  },
+
+  getBackup() {
+    return axios.get<BackupData>(`${API_BASE}/backup`)              // v3.1.0 新增
+  },
+
+  restoreBackup(payload: unknown) {
+    return axios.post<{ message: string }>(`${API_BASE}/restore`, payload)  // v3.1.0 新增
+  }
+  // 其余：分类增删查、月度统计、预算读写、CSV 导出
 }
 ```
 
@@ -518,42 +600,50 @@ export const CATEGORY_COLORS: Record<string, string> = {
 
 ### 9.2 功能演示（5 分钟）
 1. **启动应用**（10 秒）
-   - 双击 exe，展示快速启动
-   
+   - 双击 exe，展示快速启动（演示建议用安装版）
+
 2. **添加消费**（30 秒）
    - 选择分类、输入金额、描述、日期
-   - 提交，展示成功提示
-   
-3. **查看记录**（30 秒）
-   - 切换到记录 Tab
-   - 展示刚添加的记录
-   - 删除记录，展示确认弹窗
-   
+   - 提交，展示成功提示与首页概览联动
+
+3. **查看与编辑记录**（45 秒）
+   - 切换到记录页，展示列表（ID/日期/分类/描述/金额）
+   - **用关键词搜索**（如输入"地铁"）演示筛选，再点"重置"
+   - **点击行内编辑按钮**改金额，保存后展示列表同步更新
+   - 删除记录，展示二次确认弹窗
+
 4. **统计分析**（1 分钟）
-   - 切换到统计 Tab
-   - 展示饼图，悬停显示详情
-   - 点击图例筛选分类
-   
+   - 切换到统计页
+   - 展示饼图与分类占比表
+   - 切换月份看历史数据
+
 5. **预算管理**（30 秒）
    - 设置月度预算
-   - 展示进度条变化
-   
-6. **主题切换**（30 秒）
-   - 切换到暗色模式
-   - 展示全局样式适配
-   
-7. **数据导出**（30 秒）
+   - 展示进度条与三色状态（把预算调到刚好 80% 展示黄色提醒档）
+
+6. **备份与恢复**（45 秒）
+   - 设置页点"备份数据"，展示导出的 JSON
+   - 故意删掉两条记录
+   - 点"从备份恢复"，展示二次确认与恢复后数据还原
+
+7. **主题切换与多比例响应式**（45 秒）
+   - 设置页切换暗色主题，展示全局样式与图表同步适配
+   - **拖动窗口拉成竖条**，展示导航从侧边栏自动变为底部栏、指标卡列数变化
+
+8. **数据导出**（30 秒）
    - 导出 CSV 文件
-   - 用 Excel 打开展示
+   - 用 Excel 打开展示中文与金额格式正常
 
 ### 9.3 技术讲解（3 分钟）
 - 展示架构图
-- 讲解便携版实现原理
+- 讲解便携版实现原理（数据库为何能跟着 exe 走）
 - 展示核心代码片段
 
 ### 9.4 迭代历程（1 分钟）
-- v1.0 → v2.0 → v3.0 演进
-- 每轮迭代改进点
+- v1.0（PyQt5）→ v2.0（Web 栈）→ v3.0（Electron 便携版）→ **v3.1.0（编辑/搜索/备份恢复/响应式）**
+- 重点讲 v3.0.1 那一轮"全面质量审计查出 21 项缺陷"——包括 Infinity 数据投毒、
+  portable 双击互删等，说明为什么要"先验证再交付"
+- 再讲 v3.1.0 "先调研 20 款竞品再定优先级"，解释为什么做的是编辑记录而不是花哨功能
 
 ### 9.5 心得体会（1 分钟）
 - 技术选型经验
@@ -572,45 +662,65 @@ export const CATEGORY_COLORS: Record<string, string> = {
 
 ```
 SofteareEnjineer/
-├── campus_expense_electron/          # v3.0 Electron 便携版
+├── campus_expense_electron/          # v3.1.0 Electron 便携版（当前）
 │   ├── src/
-│   │   ├── main/index.ts             # Electron 主进程
-│   │   ├── preload/index.ts          # 预加载脚本
+│   │   ├── main/index.ts             # Electron 主进程（后端生命周期/单实例锁/错误提示）
+│   │   ├── preload/index.ts          # 预加载脚本（contextBridge 安全桥接）
 │   │   └── renderer/src/
-│   │       ├── App.vue               # 主应用组件
+│   │       ├── App.vue               # 主应用组件（按 navMode 切换导航形态）
 │   │       ├── api/index.ts          # 统一 API 层
-│   │       └── components/           # 6 个功能组件
-│   ├── resources/backend/            # PyInstaller 打包的后端
-│   └── package.json                  # 项目配置
+│   │       ├── components/           # 6 个功能组件（含 Dashboard）
+│   │       ├── composables/          # useTheme（主题）/ useLayout（多比例响应式）
+│   │       ├── utils/constants.ts    # 分类配色、图标、todayLocal() 等共享工具
+│   │       └── __tests__/            # 渲染层 vitest 组件测试（32 个用例）
+│   ├── vitest.config.ts              # 渲染层测试配置
+│   ├── resources/backend/            # PyInstaller 打包产物（gitignore，CI 生成）
+│   ├── backend.spec                  # PyInstaller 打包配置
+│   └── package.json                  # 项目配置（electron-builder 配置在 build 字段）
 │
 ├── campus_expense_web/              # v2.0 现代 Web 版（历史）
-│   ├── backend/main.py               # FastAPI 后端
-│   └── frontend/                     # Vue 3 前端
+│   ├── backend/
+│   │   ├── main.py                  # FastAPI 后端（v3.x 共用）
+│   │   └── tests/test_api.py        # 后端 pytest（47 个用例，覆盖率 95%）
+│   └── frontend/                    # Vue 3 前端
 │
+├── docs/upgrade-research/           # v3.1.0 升级调研报告（功能矩阵/响应式/代码审计/开发环境）
+├── .github/workflows/               # CI（4 路 job）+ Windows 构建发布工作流
 ├── campus_expense_tracker.py        # v1.0 PyQt5 版（历史）
-├── AGENTS.md                         # 项目说明
-├── DESIGN.md                         # 设计文档
-└── iteration_log.md                  # 迭代记录
+├── AGENTS.md                        # 项目说明（给 AI 智能体的项目说明书）
+├── DESIGN.md                        # 设计文档（含 v3.0 实现偏差说明）
+├── PPT_PREPARATION.md               # 本文件
+├── ITERATION_AND_INSIGHTS.md        # 迭代记录与心得（提交版）
+├── iteration_log.md                 # 迭代记录（完整版，含全部轮次）
+└── WINDOWS_BUILD_GUIDE.md           # Windows 构建指南
 ```
 
 ### 10.2 API 端点列表
 
+> 下表与 `campus_expense_web/backend/main.py` 的实际路由逐条核对（2026-10-10）。
+
 | 方法 | 路径 | 功能 |
 |------|------|------|
-| GET | `/api/expenses` | 获取消费记录列表 |
+| GET | `/` | 服务标识 |
+| GET | `/api/health` | 健康检查（Electron 主进程用它做启动探活） |
+| GET | `/api/expenses` | 获取消费记录；支持 year / month / keyword / category / date_from / date_to / min_amount / max_amount 筛选 |
 | POST | `/api/expenses` | 创建消费记录 |
+| **PUT** | `/api/expenses/{id}` | **编辑消费记录**（v3.1.0 新增） |
 | DELETE | `/api/expenses/{id}` | 删除消费记录 |
 | GET | `/api/categories` | 获取分类列表 |
-| POST | `/api/categories` | 创建自定义分类 |
-| DELETE | `/api/categories/{id}` | 删除自定义分类 |
-| GET | `/api/statistics/monthly` | 获取月度统计 |
-| GET | `/api/statistics/category` | 获取分类统计 |
-| GET | `/api/budget` | 获取当前预算 |
-| POST | `/api/budget` | 设置月度预算 |
-| GET | `/api/budget/status` | 获取预算使用状态 |
-| GET | `/api/export/csv` | 导出 CSV |
-| GET | `/api/settings/theme` | 获取当前主题 |
-| POST | `/api/settings/theme` | 设置主题 |
+| POST | `/api/categories` | 创建自定义分类（名称去空白后不可为空、不可重复） |
+| DELETE | `/api/categories/{id}` | 删除自定义分类（默认分类拒绝删除） |
+| GET | `/api/budget` | 获取预算与本月使用情况（未设置时 monthly_budget 为 null） |
+| **PUT** | `/api/budget` | 设置月度预算（注意是 PUT） |
+| GET | `/api/statistics/{year}/{month}` | 月度统计：总额 + 按分类聚合（饼图数据） |
+| GET | `/api/export` | 导出全部记录为 CSV（内存生成，utf-8-sig 带 BOM） |
+| **GET** | `/api/backup` | **导出全量 JSON 备份**（记录 + 分类 + 预算，v3.1.0 新增） |
+| **POST** | `/api/restore` | **从备份恢复**（整库替换，v3.1.0 新增） |
+
+> 主题（亮/暗）**没有后端接口**，由渲染层 localStorage 持久化；
+> 数据库中的 `settings` 表按设计保留但当前未使用。
+> 早期文档曾列出 `/api/statistics/monthly`、`/api/statistics/category`、
+> `/api/budget/status`、`/api/export/csv`、`/api/settings/theme`，这些端点从未实现，已更正。
 
 ### 10.3 数据库表结构
 
@@ -618,9 +728,9 @@ SofteareEnjineer/
 -- 消费记录表
 CREATE TABLE expenses (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
-    amount REAL NOT NULL CHECK(amount > 0),
+    amount REAL NOT NULL,
     category TEXT NOT NULL,
-    description TEXT DEFAULT '',
+    description TEXT,
     date TEXT NOT NULL,
     created_at TEXT DEFAULT CURRENT_TIMESTAMP
 );
@@ -633,9 +743,9 @@ CREATE TABLE categories (
     is_default INTEGER DEFAULT 0
 );
 
--- 预算表
+-- 预算表（单行全局预算）
 CREATE TABLE budget (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    id INTEGER PRIMARY KEY,
     monthly_budget REAL
 );
 
@@ -661,6 +771,9 @@ CREATE TABLE settings (
 
 ---
 
-**文档版本**：v3.0  
-**最后更新**：2026-09-29  
+**文档版本**：v3.1.0  
+**最后更新**：2026-10-10  
 **作者**：校园消费记账团队
+
+> 相关文档：迭代记录与心得见 `iteration_log.md`（完整版）与 `ITERATION_AND_INSIGHTS.md`（提交版）；
+> 升级调研报告见 `docs/upgrade-research/`；构建指南见 `WINDOWS_BUILD_GUIDE.md`。
