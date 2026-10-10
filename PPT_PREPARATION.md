@@ -356,12 +356,12 @@ function getDbPath(): string {
 4. PyInstaller 打包的后端可独立运行 ✓
 5. CI 日志确认真实打包产物中含 `resources\backend\backend.exe` ✓
 
-**Windows 实机验证清单**（随 Release 发布的便携版 exe，需在 Windows 上执行）：
+**Windows 实机验证**：
 
-- [ ] 双击 exe 启动（无黑色控制台窗口、无白屏）
-- [ ] `campus_expenses.db` 在 exe 同目录生成
-- [ ] 增删改查、图表、预算、主题、备份恢复等功能正常
-- [ ] 拷贝 exe + db 到 U 盘，在另一台 Windows 电脑运行，数据保留
+- [x] 在真实 Windows 机器上运行便携版 exe：启动正常（无黑色控制台窗口、无白屏）
+- [x] 增删改查、编辑、搜索筛选、图表、预算、主题、备份恢复等功能正常
+- [x] `campus_expenses.db` 在 exe 同目录生成，数据可持久化
+- [ ] 拷贝 exe + db 到 U 盘，在另一台 Windows 电脑运行，数据保留（建议演示前顺手验一次）
 
 > 演示建议：**用 NSIS 安装版**。portable 版每次启动会把 95MB 解压到临时目录且期间无界面，
 > 存在"用户以为没点上、再点一次导致解压目录被清理"的残余风险；安装版没有这个环节。
