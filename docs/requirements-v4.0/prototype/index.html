@@ -1,0 +1,1151 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>搭子账本 · 需求验证原型</title>
+<style>
+  :root {
+    --bg: #f5f6fa;
+    --card: #ffffff;
+    --ink: #0f172a;
+    --muted: #64748b;
+    --line: #e2e8f0;
+    --brand: #4f46e5;
+    --brand-soft: #eef2ff;
+    --teal: #0d9488;
+    --teal-soft: #ccfbf1;
+    --danger: #dc2626;
+    --danger-soft: #fef2f2;
+    --ok: #16a34a;
+    --ok-soft: #f0fdf4;
+    --warn: #d97706;
+    --warn-soft: #fffbeb;
+    --sidebar: #111827;
+    --sidebar-soft: #1f2937;
+    --radius: 16px;
+    --shadow: 0 10px 30px rgba(15, 23, 42, .06);
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; }
+  body {
+    font-family: system-ui, -apple-system, "Segoe UI", "Noto Sans SC", "Microsoft YaHei", sans-serif;
+    background: var(--bg);
+    color: var(--ink);
+    min-height: 100vh;
+  }
+  button, input, select { font: inherit; }
+  button { cursor: pointer; }
+  [hidden] { display: none !important; }
+
+  .app {
+    display: grid;
+    grid-template-columns: 264px minmax(0, 1fr);
+    min-height: 100vh;
+  }
+
+  /* ---------- 侧边栏 ---------- */
+  .sidebar {
+    background: var(--sidebar);
+    color: #e5e7eb;
+    padding: 22px 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 18px;
+  }
+  .brand { display: flex; align-items: center; gap: 12px; padding: 4px 6px 10px; }
+  .brand-mark {
+    width: 42px; height: 42px; border-radius: 13px;
+    background: linear-gradient(135deg, #6366f1, #14b8a6);
+    display: grid; place-items: center;
+    font-weight: 800; font-size: 20px; color: #fff;
+    box-shadow: 0 8px 20px rgba(99, 102, 241, .35);
+  }
+  .brand h1 { font-size: 17px; margin: 0; letter-spacing: .5px; }
+  .brand p { margin: 3px 0 0; font-size: 11px; color: #9ca3af; }
+  .side-label { font-size: 11px; color: #9ca3af; padding: 0 8px; letter-spacing: 1px; }
+  .ledger-list { display: flex; flex-direction: column; gap: 6px; }
+  .ledger-item {
+    width: 100%; text-align: left; border: 0; border-radius: 12px;
+    background: transparent; color: #d1d5db; padding: 11px 12px;
+    display: flex; flex-direction: column; gap: 3px;
+    transition: background .18s, color .18s;
+  }
+  .ledger-item:hover { background: var(--sidebar-soft); color: #fff; }
+  .ledger-item.active { background: #fff; color: var(--ink); }
+  .ledger-item .name { font-size: 13px; font-weight: 650; }
+  .ledger-item .meta { font-size: 11px; opacity: .7; }
+  .ledger-item.active .meta { color: var(--muted); opacity: 1; }
+  .side-note {
+    margin-top: auto; border: 1px solid rgba(255,255,255,.08);
+    border-radius: 14px; padding: 12px; font-size: 11px; line-height: 1.7;
+    color: #9ca3af; background: rgba(255,255,255,.03);
+  }
+
+  /* ---------- 主区域 ---------- */
+  .main { padding: 26px 30px 22px; min-width: 0; }
+  .topbar { display: flex; align-items: flex-start; justify-content: space-between; gap: 18px; flex-wrap: wrap; }
+  .topbar h2 { margin: 0 0 5px; font-size: 24px; letter-spacing: -.3px; }
+  .topbar .meta { margin: 0; color: var(--muted); font-size: 13px; }
+  .top-actions { display: flex; gap: 9px; flex-wrap: wrap; }
+  .btn {
+    border: 1px solid transparent; border-radius: 11px; padding: 9px 15px;
+    font-size: 13px; font-weight: 600; transition: transform .12s, box-shadow .12s, background .12s;
+  }
+  .btn:active { transform: translateY(1px); }
+  .btn.primary { background: var(--brand); color: #fff; box-shadow: 0 7px 18px rgba(79,70,229,.25); }
+  .btn.primary:hover { background: #4338ca; }
+  .btn.secondary { background: #fff; color: var(--brand); border-color: #c7d2fe; }
+  .btn.secondary:hover { background: var(--brand-soft); }
+  .btn.ghost { background: transparent; color: var(--muted); border-color: var(--line); }
+  .btn.ghost:hover { background: #fff; color: var(--ink); }
+  .btn.small { padding: 6px 11px; font-size: 12px; border-radius: 9px; }
+  .btn.done { background: var(--ok-soft); color: var(--ok); border-color: #bbf7d0; cursor: default; }
+
+  .tabs {
+    display: flex; gap: 4px; margin: 24px 0 18px;
+    border-bottom: 1px solid var(--line); overflow-x: auto;
+  }
+  .tab {
+    border: 0; background: transparent; color: var(--muted);
+    padding: 11px 16px 12px; font-size: 13px; font-weight: 600;
+    border-bottom: 2px solid transparent; white-space: nowrap;
+  }
+  .tab:hover { color: var(--ink); }
+  .tab.active { color: var(--brand); border-bottom-color: var(--brand); }
+
+  .grid-cards { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 14px; }
+  .card {
+    background: var(--card); border: 1px solid var(--line);
+    border-radius: var(--radius); box-shadow: var(--shadow);
+  }
+  .stat-card { padding: 16px 17px; position: relative; overflow: hidden; }
+  .stat-card .label { color: var(--muted); font-size: 12px; margin-bottom: 9px; }
+  .stat-card .value { font-size: 22px; font-weight: 750; letter-spacing: -.4px; }
+  .stat-card .hint { color: var(--muted); font-size: 11px; margin-top: 7px; }
+  .stat-card.accent { background: linear-gradient(135deg, #4f46e5, #0d9488); border: 0; color: #fff; }
+  .stat-card.accent .label, .stat-card.accent .hint { color: rgba(255,255,255,.75); }
+  .stat-card.accent .value { color: #fff; }
+
+  .section {
+    background: var(--card); border: 1px solid var(--line);
+    border-radius: var(--radius); box-shadow: var(--shadow);
+    padding: 18px 18px 16px; margin-top: 16px;
+  }
+  .section-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 14px; }
+  .section-head h3 { margin: 0; font-size: 15px; }
+  .section-head p { margin: 0; color: var(--muted); font-size: 12px; }
+
+  .expense-row {
+    display: grid; grid-template-columns: minmax(0, 1fr) auto;
+    gap: 12px; align-items: center;
+    padding: 14px 4px; border-bottom: 1px solid var(--line);
+  }
+  .expense-row:last-child { border-bottom: 0; }
+  .exp-left { display: flex; gap: 12px; align-items: flex-start; min-width: 0; }
+  .dot { width: 10px; height: 10px; border-radius: 50%; margin-top: 5px; flex: 0 0 auto; }
+  .exp-title { font-size: 14px; font-weight: 620; margin-bottom: 4px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .exp-meta { color: var(--muted); font-size: 12px; }
+  .exp-right { text-align: right; }
+  .exp-amount { font-size: 15px; font-weight: 720; }
+  .exp-amount.refunded { text-decoration: line-through; color: var(--muted); }
+  .badge {
+    display: inline-block; margin-top: 5px; padding: 3px 8px;
+    border-radius: 99px; font-size: 10px; font-weight: 650;
+    background: #f1f5f9; color: var(--muted);
+  }
+  .badge.ok { background: var(--ok-soft); color: var(--ok); }
+  .badge.warn { background: var(--warn-soft); color: var(--warn); }
+  .badge.danger { background: var(--danger-soft); color: var(--danger); }
+  .badge.brand { background: var(--brand-soft); color: var(--brand); }
+  details.shares { grid-column: 1 / -1; margin: 2px 0 0 22px; }
+  details.shares summary {
+    color: var(--muted); font-size: 11px; cursor: pointer; width: fit-content;
+    padding: 3px 0; user-select: none;
+  }
+  details.shares summary:hover { color: var(--brand); }
+  .share-grid { display: flex; flex-wrap: wrap; gap: 8px; padding: 9px 0 2px; }
+  .share-chip {
+    background: #f8fafc; border: 1px solid var(--line); border-radius: 8px;
+    padding: 5px 9px; font-size: 11px; color: var(--muted);
+  }
+  .share-chip b { color: var(--ink); font-weight: 650; }
+
+  .empty {
+    padding: 34px 10px; text-align: center; color: var(--muted); font-size: 13px;
+  }
+
+  /* 统计 */
+  .stats-grid { display: grid; grid-template-columns: 1.1fr .9fr; gap: 16px; margin-top: 16px; }
+  .bar-row { display: grid; grid-template-columns: 58px minmax(0,1fr) 78px; gap: 10px; align-items: center; margin: 11px 0; }
+  .bar-label { font-size: 12px; color: var(--muted); }
+  .bar-track { display: block; height: 9px; background: #f1f5f9; border-radius: 99px; overflow: hidden; }
+  .bar-fill { display: block; height: 100%; border-radius: 99px; }
+  .bar-value { text-align: right; font-size: 12px; font-weight: 650; }
+  .table { width: 100%; border-collapse: collapse; font-size: 12px; }
+  .table th { text-align: left; color: var(--muted); font-weight: 600; padding: 8px 6px; border-bottom: 1px solid var(--line); }
+  .table td { padding: 9px 6px; border-bottom: 1px solid #f1f5f9; }
+  .table tr:last-child td { border-bottom: 0; }
+  .num { text-align: right; font-variant-numeric: tabular-nums; }
+  .pos { color: var(--ok); font-weight: 650; }
+  .neg { color: var(--danger); font-weight: 650; }
+
+  .budget-top { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 10px; }
+  .budget-top strong { font-size: 20px; }
+  .progress { height: 12px; background: #f1f5f9; border-radius: 99px; overflow: hidden; }
+  .progress > div { height: 100%; border-radius: 99px; background: linear-gradient(90deg, #4f46e5, #0d9488); }
+  .progress.warn > div { background: linear-gradient(90deg, #f59e0b, #ef4444); }
+  .progress.danger > div { background: var(--danger); }
+
+  /* 结算 */
+  .balance-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 12px; }
+  .balance-card { border: 1px solid var(--line); border-radius: 13px; padding: 13px; background: #fbfcfe; }
+  .balance-card .person { font-size: 13px; font-weight: 650; margin-bottom: 5px; }
+  .balance-card .amount { font-size: 18px; font-weight: 750; }
+  .balance-card .tag { font-size: 10px; color: var(--muted); margin-top: 4px; }
+  .transfer-row {
+    display: flex; align-items: center; justify-content: space-between; gap: 12px;
+    padding: 13px 4px; border-bottom: 1px solid var(--line);
+  }
+  .transfer-row:last-child { border-bottom: 0; }
+  .transfer-main { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; font-size: 13px; }
+  .arrow { color: var(--brand); font-weight: 800; }
+  .transfer-amount { font-weight: 750; font-size: 15px; }
+  .transfer-note { color: var(--muted); font-size: 11px; }
+
+  /* 成员 */
+  .member-row { display: flex; align-items: center; justify-content: space-between; gap: 14px; padding: 13px 4px; border-bottom: 1px solid var(--line); }
+  .member-row:last-child { border-bottom: 0; }
+  .member-main { display: flex; align-items: center; gap: 12px; }
+  .avatar {
+    width: 38px; height: 38px; border-radius: 12px; display: grid; place-items: center;
+    font-weight: 750; font-size: 13px; color: #fff; background: #94a3b8;
+  }
+  .avatar.owner { background: linear-gradient(135deg, #4f46e5, #7c3aed); }
+  .avatar.admin { background: linear-gradient(135deg, #0d9488, #0891b2); }
+  .member-name { font-size: 13px; font-weight: 650; }
+  .member-meta { color: var(--muted); font-size: 11px; margin-top: 2px; }
+  .perm-note { color: var(--muted); font-size: 11px; margin-top: 12px; line-height: 1.7; }
+
+  /* 模态框 */
+  .modal-backdrop {
+    position: fixed; inset: 0; background: rgba(15, 23, 42, .45);
+    backdrop-filter: blur(4px); display: flex; align-items: center; justify-content: center;
+    padding: 20px; z-index: 50;
+  }
+  .modal {
+    width: min(580px, 100%); max-height: 90vh; overflow-y: auto;
+    background: #fff; border-radius: 18px; box-shadow: 0 30px 80px rgba(15,23,42,.2);
+    padding: 20px 22px 18px;
+  }
+  .modal-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px; }
+  .modal-head h3 { margin: 0; font-size: 18px; }
+  .icon-btn {
+    border: 0; background: #f1f5f9; color: var(--muted); width: 32px; height: 32px;
+    border-radius: 10px; font-size: 18px; line-height: 1;
+  }
+  .icon-btn:hover { background: #e2e8f0; color: var(--ink); }
+  .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px 14px; }
+  .field { display: flex; flex-direction: column; gap: 6px; }
+  .field.full { grid-column: 1 / -1; }
+  .field label { font-size: 12px; color: var(--muted); font-weight: 600; }
+  .field input, .field select {
+    border: 1px solid var(--line); border-radius: 10px; padding: 9px 11px;
+    background: #fff; color: var(--ink); outline: none; width: 100%;
+  }
+  .field input:focus, .field select:focus { border-color: #a5b4fc; box-shadow: 0 0 0 3px #eef2ff; }
+  .check-grid { display: flex; flex-wrap: wrap; gap: 8px; }
+  .check-chip {
+    display: inline-flex; align-items: center; gap: 6px; white-space: nowrap; flex: 0 0 auto;
+    border: 1px solid var(--line); border-radius: 99px; padding: 7px 11px;
+    font-size: 12px; color: var(--muted); cursor: pointer; background: #fff;
+  }
+  .check-chip:has(input:checked) { border-color: #a5b4fc; background: var(--brand-soft); color: var(--brand); }
+  .check-chip input { accent-color: var(--brand); }
+  .split-box { border: 1px dashed #cbd5e1; border-radius: 12px; padding: 12px; background: #fbfcfe; }
+  .split-preview { display: flex; flex-wrap: wrap; gap: 7px; }
+  .split-input-row { display: grid; grid-template-columns: 1fr 120px; gap: 10px; align-items: center; margin: 7px 0; font-size: 12px; }
+  .split-input-row input { text-align: right; }
+  .hint { color: var(--muted); font-size: 11px; line-height: 1.6; }
+  .error { color: var(--danger); font-size: 12px; margin-top: 9px; min-height: 16px; }
+  .modal-actions { display: flex; justify-content: flex-end; gap: 9px; margin-top: 16px; }
+
+  /* 邀请 */
+  .invite-box { text-align: center; padding: 6px 4px 2px; }
+  .invite-code {
+    display: inline-block; letter-spacing: 6px; font-size: 28px; font-weight: 800;
+    color: var(--brand); background: var(--brand-soft); border-radius: 14px;
+    padding: 12px 20px 12px 26px; margin: 8px 0 10px;
+  }
+  .invite-link {
+    display: block; width: 100%; margin: 10px 0; padding: 10px 12px;
+    border: 1px solid var(--line); border-radius: 10px; background: #f8fafc;
+    color: var(--muted); font-size: 12px; word-break: break-all;
+  }
+
+  /* 提示 */
+  .toast {
+    position: fixed; left: 50%; bottom: 28px; transform: translateX(-50%);
+    background: #0f172a; color: #fff; padding: 11px 18px; border-radius: 12px;
+    font-size: 13px; box-shadow: 0 18px 40px rgba(15,23,42,.28); z-index: 80;
+    animation: pop .18s ease-out;
+  }
+  @keyframes pop { from { opacity: 0; transform: translate(-50%, 8px); } to { opacity: 1; transform: translate(-50%, 0); } }
+
+  .foot { color: var(--muted); font-size: 11px; margin-top: 18px; line-height: 1.7; }
+
+  /* 需求标注 */
+  body.annotate [data-req] {
+    outline: 2px dashed #f59e0b; outline-offset: 4px; position: relative;
+  }
+  body.annotate [data-req]::after {
+    content: attr(data-req); position: absolute; top: -11px; right: 8px;
+    background: #f59e0b; color: #fff; font-size: 9px; font-weight: 700;
+    padding: 2px 6px; border-radius: 6px; z-index: 20; letter-spacing: .3px;
+  }
+
+  @media (max-width: 980px) {
+    .grid-cards { grid-template-columns: repeat(2, minmax(0,1fr)); }
+    .stats-grid { grid-template-columns: 1fr; }
+  }
+  @media (max-width: 780px) {
+    .app { grid-template-columns: 1fr; }
+    .sidebar { flex-direction: row; align-items: center; padding: 12px; overflow-x: auto; }
+    .brand { padding: 0 8px 0 0; white-space: nowrap; }
+    .brand p, .side-label, .side-note { display: none; }
+    .ledger-list { flex-direction: row; }
+    .ledger-item { min-width: 150px; }
+    .main { padding: 18px 14px; }
+    .form-grid { grid-template-columns: 1fr; }
+    .grid-cards { grid-template-columns: repeat(2, minmax(0,1fr)); }
+  }
+  @media (max-width: 520px) {
+    .grid-cards { grid-template-columns: 1fr; }
+    .topbar h2 { font-size: 20px; }
+  }
+</style>
+</head>
+<body>
+<div class="app">
+  <aside class="sidebar">
+    <div class="brand">
+      <div class="brand-mark">搭</div>
+      <div>
+        <h1>搭子账本</h1>
+        <p>共享记账 · 自动分摊 · 一键结算</p>
+      </div>
+    </div>
+    <div class="side-label">我的账本</div>
+    <div class="ledger-list" id="ledgerList" data-req="FR-03"></div>
+    <div class="side-note">
+      需求验证原型<br>
+      数据为演示数据，不连接真实服务；<br>
+      点击右上角“需求标注”可查看界面与 FR 编号的对应关系。
+    </div>
+  </aside>
+
+  <main class="main">
+    <header class="topbar">
+      <div>
+        <h2 id="ledgerTitle">宿舍日常账本</h2>
+        <p class="meta" id="ledgerMeta"></p>
+      </div>
+      <div class="top-actions">
+        <button class="btn ghost" id="annotateBtn" type="button">需求标注</button>
+        <button class="btn secondary" id="inviteBtn" type="button" data-req="FR-04">邀请成员</button>
+        <button class="btn primary" id="addBtn" type="button" data-req="FR-08">记一笔</button>
+      </div>
+    </header>
+
+    <nav class="tabs" id="tabs">
+      <button class="tab active" data-tab="flow" type="button">流水</button>
+      <button class="tab" data-tab="stats" type="button">统计</button>
+      <button class="tab" data-tab="settle" type="button">结算</button>
+      <button class="tab" data-tab="members" type="button">成员</button>
+    </nav>
+
+    <section id="content"></section>
+
+    <p class="foot">
+      需求验证原型 · 对应《搭子账本 v4.0 初步软件需求》FR-03 / FR-04 / FR-06 / FR-08 / FR-09 / FR-13 / FR-14 / FR-15 / FR-16<br>
+      真实资金转移由用户在微信/支付宝完成，本系统只记录账目与结清状态。
+    </p>
+  </main>
+</div>
+
+<!-- 记一笔 -->
+<div class="modal-backdrop" id="expenseModal" hidden>
+  <div class="modal">
+    <div class="modal-head">
+      <h3>记一笔共同支出</h3>
+      <button class="icon-btn" type="button" data-close="expenseModal">×</button>
+    </div>
+    <form id="expenseForm">
+      <div class="form-grid">
+        <div class="field">
+          <label for="amount">金额（元）</label>
+          <input id="amount" type="number" min="0.01" max="1000000" step="0.01" placeholder="0.00" required>
+        </div>
+        <div class="field">
+          <label for="category">分类</label>
+          <select id="category">
+            <option>餐饮</option><option>交通</option><option>学习</option><option>娱乐</option>
+            <option>社交</option><option>购物</option><option>医疗</option><option>其他</option>
+          </select>
+        </div>
+        <div class="field full">
+          <label for="description">备注</label>
+          <input id="description" type="text" maxlength="100" placeholder="例如：周末火锅">
+        </div>
+        <div class="field">
+          <label for="date">日期</label>
+          <input id="date" type="date">
+        </div>
+        <div class="field">
+          <label for="payer">谁付的钱</label>
+          <select id="payer"></select>
+        </div>
+        <div class="field full">
+          <label>谁参与</label>
+          <div class="check-grid" id="participantList"></div>
+        </div>
+        <div class="field full">
+          <label for="splitMode">分摊方式</label>
+          <select id="splitMode">
+            <option value="equal">均分</option>
+            <option value="amount">按金额</option>
+            <option value="percentage">按比例</option>
+          </select>
+        </div>
+        <div class="field full">
+          <div class="split-box" id="splitDetail"></div>
+          <div class="hint" style="margin-top:8px">金额精确到分；均分余数优先计入付款人。凭证图片在原型中不保存。</div>
+        </div>
+      </div>
+      <div class="error" id="formError"></div>
+      <div class="modal-actions">
+        <button class="btn ghost" type="button" data-close="expenseModal">取消</button>
+        <button class="btn primary" type="submit">保存并校验分摊</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- 邀请 -->
+<div class="modal-backdrop" id="inviteModal" hidden>
+  <div class="modal">
+    <div class="modal-head">
+      <h3>邀请成员</h3>
+      <button class="icon-btn" type="button" data-close="inviteModal">×</button>
+    </div>
+    <div class="invite-box">
+      <p class="hint">把邀请码或链接发给同学，7 天内有效，可随时撤销。</p>
+      <div class="invite-code" id="inviteCode">K7M2Q9</div>
+      <div class="invite-link" id="inviteLink"></div>
+      <div class="hint" id="inviteMeta"></div>
+      <div class="modal-actions" style="justify-content:center">
+        <button class="btn ghost" type="button" data-close="inviteModal">关闭</button>
+        <button class="btn primary" type="button" id="copyInvite">复制邀请链接</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast" hidden></div>
+
+<script>
+(function () {
+  'use strict';
+
+  const ME = 'me';
+  const CATEGORY_COLORS = {
+    '餐饮': '#f97316', '交通': '#3b82f6', '学习': '#8b5cf6', '娱乐': '#ec4899',
+    '社交': '#14b8a6', '购物': '#eab308', '医疗': '#ef4444', '其他': '#64748b'
+  };
+
+  const state = {
+    currentLedgerId: 'dorm',
+    tab: 'flow',
+    annotate: false,
+    settled: {},
+    ledgers: initLedgers()
+  };
+
+  function initLedgers() {
+    const data = [
+      {
+        id: 'dorm',
+        name: '宿舍日常账本',
+        type: '宿舍',
+        inviteCode: 'K7M2Q9',
+        expires: '2026-10-27',
+        budget: 60000,
+        members: [
+          { id: 'me', name: '我', role: 'owner' },
+          { id: 'aze', name: '阿泽', role: 'member' },
+          { id: 'lin', name: '小林', role: 'member' },
+          { id: 'dapeng', name: '大鹏', role: 'member' }
+        ],
+        expenses: [
+          { id: 1, amount: 12800, category: '餐饮', desc: '周末火锅', date: '2026-10-18', payer: 'me', participants: ['me','aze','lin','dapeng'], mode: 'equal', status: 'normal' },
+          { id: 2, amount: 24000, category: '其他', desc: '十月水电费', date: '2026-10-12', payer: 'aze', participants: ['me','aze','lin','dapeng'], mode: 'equal', status: 'normal' },
+          { id: 3, amount: 3600, category: '购物', desc: '公共纸巾和垃圾袋', date: '2026-10-08', payer: 'lin', participants: ['me','aze','lin','dapeng'], mode: 'equal', status: 'normal' },
+          { id: 4, amount: 4800, category: '餐饮', desc: '奶茶（大鹏没喝）', date: '2026-10-05', payer: 'me', participants: ['me','aze','lin'], mode: 'equal', status: 'normal' },
+          { id: 5, amount: 8000, category: '娱乐', desc: '电影票（活动取消，已退款）', date: '2026-10-02', payer: 'dapeng', participants: ['me','aze','lin','dapeng'], mode: 'equal', status: 'refunded' }
+        ]
+      },
+      {
+        id: 'travel',
+        name: '云南旅行',
+        type: '旅行',
+        inviteCode: 'T4R8X2',
+        expires: '2026-10-27',
+        budget: 0,
+        members: [
+          { id: 'me', name: '我', role: 'owner' },
+          { id: 'aze', name: '阿泽', role: 'member' },
+          { id: 'lin', name: '小林', role: 'member' },
+          { id: 'yuan', name: '圆圆', role: 'member' },
+          { id: 'zhou', name: '老周', role: 'member' }
+        ],
+        expenses: [
+          { id: 11, amount: 125000, category: '交通', desc: '高铁票', date: '2026-10-16', payer: 'me', participants: ['me','aze','lin','yuan','zhou'], mode: 'equal', status: 'normal' },
+          { id: 12, amount: 180000, category: '其他', desc: '民宿两晚', date: '2026-10-16', payer: 'aze', participants: ['me','aze','lin','yuan','zhou'], mode: 'equal', status: 'normal' },
+          { id: 13, amount: 75000, category: '娱乐', desc: '景区门票', date: '2026-10-17', payer: 'yuan', participants: ['me','aze','lin','yuan','zhou'], mode: 'equal', status: 'normal' },
+          { id: 14, amount: 42500, category: '餐饮', desc: '古城晚餐（老周没参加）', date: '2026-10-17', payer: 'lin', participants: ['me','aze','lin','yuan'], mode: 'equal', status: 'normal' }
+        ]
+      },
+      {
+        id: 'club',
+        name: '社团活动',
+        type: '社团',
+        inviteCode: 'C9L3V7',
+        expires: '2026-10-27',
+        budget: 150000,
+        members: [
+          { id: 'me', name: '我', role: 'admin' },
+          { id: 'president', name: '会长', role: 'owner' },
+          { id: 'finance', name: '财务', role: 'member' },
+          { id: 'xia', name: '小夏', role: 'member' },
+          { id: 'zhe', name: '阿哲', role: 'member' }
+        ],
+        expenses: [
+          { id: 21, amount: 68000, category: '购物', desc: '活动物料', date: '2026-10-14', payer: 'finance', participants: ['me','president','finance','xia','zhe'], mode: 'equal', status: 'normal' },
+          { id: 22, amount: 30000, category: '其他', desc: '场地费', date: '2026-10-14', payer: 'president', participants: ['me','president','finance','xia','zhe'], mode: 'equal', status: 'normal' },
+          { id: 23, amount: 9600, category: '学习', desc: '打印海报', date: '2026-10-13', payer: 'me', participants: ['me','president','finance','xia','zhe'], mode: 'equal', status: 'normal' },
+          { id: 24, amount: 56000, category: '餐饮', desc: '活动后聚餐（会长没参加）', date: '2026-10-15', payer: 'xia', participants: ['me','finance','xia','zhe'], mode: 'equal', status: 'normal' }
+        ]
+      }
+    ];
+
+    data.forEach(function (ledger) {
+      ledger.expenses.forEach(function (expense) {
+        if (!expense.shares) expense.shares = splitEqual(expense.amount, expense.participants, expense.payer);
+      });
+    });
+    return data;
+  }
+
+  function orderByPayer(participants, payer) {
+    const list = participants.slice();
+    if (list.indexOf(payer) === -1) return list;
+    return [payer].concat(list.filter(function (id) { return id !== payer; }));
+  }
+
+  function splitEqual(amount, participants, payer) {
+    const n = participants.length;
+    const base = Math.floor(amount / n);
+    const remainder = amount - base * n;
+    const order = orderByPayer(participants, payer);
+    const shares = {};
+    participants.forEach(function (id) { shares[id] = base; });
+    for (let i = 0; i < remainder; i++) {
+      shares[order[i % order.length]] += 1;
+    }
+    return shares;
+  }
+
+  function splitPercentage(amount, participants, payer, percentages) {
+    const raw = {};
+    let used = 0;
+    participants.forEach(function (id) {
+      const cents = Math.floor(amount * percentages[id] / 100);
+      raw[id] = cents;
+      used += cents;
+    });
+    const remainder = amount - used;
+    const order = orderByPayer(participants, payer);
+    for (let i = 0; i < remainder; i++) {
+      raw[order[i % order.length]] += 1;
+    }
+    return raw;
+  }
+
+  function currentLedger() {
+    return state.ledgers.filter(function (l) { return l.id === state.currentLedgerId; })[0];
+  }
+
+  function memberMap(ledger) {
+    const map = {};
+    ledger.members.forEach(function (m) { map[m.id] = m; });
+    return map;
+  }
+
+  function memberName(ledger, id) {
+    const m = memberMap(ledger)[id];
+    return m ? m.name : id;
+  }
+
+  function fmt(cents) {
+    return '¥' + (cents / 100).toFixed(2);
+  }
+
+  function fmtSigned(cents) {
+    if (cents === 0) return '¥0.00';
+    return (cents > 0 ? '+' : '-') + fmt(Math.abs(cents));
+  }
+
+  function esc(text) {
+    return String(text).replace(/[&<>"']/g, function (c) {
+      return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
+    });
+  }
+
+  function modeLabel(mode) {
+    return mode === 'equal' ? '均分' : mode === 'amount' ? '按金额' : '按比例';
+  }
+
+  function activeExpenses(ledger) {
+    return ledger.expenses.filter(function (e) { return e.status !== 'refunded' && e.status !== 'deleted'; });
+  }
+
+  function balances(ledger) {
+    const result = {};
+    ledger.members.forEach(function (m) { result[m.id] = 0; });
+    activeExpenses(ledger).forEach(function (e) {
+      result[e.payer] += e.amount;
+      Object.keys(e.shares).forEach(function (id) {
+        result[id] -= e.shares[id];
+      });
+    });
+    return result;
+  }
+
+  function settlements(bal) {
+    const debtors = [];
+    const creditors = [];
+    Object.keys(bal).forEach(function (id) {
+      if (bal[id] < 0) debtors.push({ id: id, amount: -bal[id] });
+      if (bal[id] > 0) creditors.push({ id: id, amount: bal[id] });
+    });
+    debtors.sort(function (a, b) { return b.amount - a.amount; });
+    creditors.sort(function (a, b) { return b.amount - a.amount; });
+    const result = [];
+    let i = 0, j = 0;
+    while (i < debtors.length && j < creditors.length) {
+      const amount = Math.min(debtors[i].amount, creditors[j].amount);
+      if (amount > 0) result.push({ from: debtors[i].id, to: creditors[j].id, amount: amount });
+      debtors[i].amount -= amount;
+      creditors[j].amount -= amount;
+      if (debtors[i].amount === 0) i++;
+      if (creditors[j].amount === 0) j++;
+    }
+    return result;
+  }
+
+  function monthTotal(ledger) {
+    return activeExpenses(ledger).reduce(function (sum, e) { return sum + e.amount; }, 0);
+  }
+
+  function renderAll() {
+    const ledger = currentLedger();
+    document.getElementById('ledgerTitle').textContent = ledger.name;
+    const bal = balances(ledger);
+    document.getElementById('ledgerMeta').textContent =
+      ledger.members.length + ' 名成员 · 本月支出 ' + fmt(monthTotal(ledger)) + ' · 我的净额 ' + fmtSigned(bal[ME] || 0);
+    renderLedgerList();
+    renderTabs();
+    renderContent();
+  }
+
+  function renderLedgerList() {
+    const list = document.getElementById('ledgerList');
+    list.innerHTML = state.ledgers.map(function (ledger) {
+      const active = ledger.id === state.currentLedgerId ? ' active' : '';
+      return '<button class="ledger-item' + active + '" type="button" data-action="switch-ledger" data-id="' + ledger.id + '">' +
+        '<span class="name">' + esc(ledger.name) + '</span>' +
+        '<span class="meta">' + esc(ledger.type) + ' · ' + ledger.members.length + ' 人 · ' + fmt(monthTotal(ledger)) + '</span>' +
+        '</button>';
+    }).join('');
+  }
+
+  function renderTabs() {
+    document.querySelectorAll('.tab').forEach(function (tab) {
+      tab.classList.toggle('active', tab.dataset.tab === state.tab);
+    });
+  }
+
+  function renderContent() {
+    const content = document.getElementById('content');
+    const ledger = currentLedger();
+    if (state.tab === 'flow') content.innerHTML = renderFlow(ledger);
+    else if (state.tab === 'stats') content.innerHTML = renderStats(ledger);
+    else if (state.tab === 'settle') content.innerHTML = renderSettle(ledger);
+    else content.innerHTML = renderMembers(ledger);
+  }
+
+  function renderSummary(ledger) {
+    const bal = balances(ledger);
+    const myPaid = activeExpenses(ledger).filter(function (e) { return e.payer === ME; })
+      .reduce(function (sum, e) { return sum + e.amount; }, 0);
+    const myShare = activeExpenses(ledger).reduce(function (sum, e) { return sum + (e.shares[ME] || 0); }, 0);
+    const net = myPaid - myShare;
+    return '<div class="grid-cards">' +
+      '<div class="card stat-card" data-req="FR-15"><div class="label">账本本月支出</div><div class="value">' + fmt(monthTotal(ledger)) + '</div><div class="hint">' + activeExpenses(ledger).length + ' 笔有效流水</div></div>' +
+      '<div class="card stat-card"><div class="label">我垫付</div><div class="value">' + fmt(myPaid) + '</div><div class="hint">我付款的支出合计</div></div>' +
+      '<div class="card stat-card"><div class="label">我应付</div><div class="value">' + fmt(myShare) + '</div><div class="hint">按分摊规则计算</div></div>' +
+      '<div class="card stat-card accent"><div class="label">我的净额</div><div class="value">' + fmtSigned(net) + '</div><div class="hint">' + (net >= 0 ? '应收（别人欠我）' : '应付（我欠别人）') + '</div></div>' +
+      '</div>';
+  }
+
+  function renderFlow(ledger) {
+    const rows = ledger.expenses.map(function (e) {
+      const refunded = e.status === 'refunded';
+      const mName = memberName(ledger, e.payer);
+      const participants = e.participants.map(function (id) { return memberName(ledger, id); }).join('、');
+      const shareChips = Object.keys(e.shares).map(function (id) {
+        return '<span class="share-chip">' + esc(memberName(ledger, id)) + ' <b>' + fmt(e.shares[id]) + '</b></span>';
+      }).join('');
+      const statusBadge = refunded ? '<span class="badge danger">已退款</span>' : '<span class="badge ok">正常</span>';
+      return '<div class="expense-row" data-req="FR-08">' +
+        '<div class="exp-left">' +
+          '<span class="dot" style="background:' + (CATEGORY_COLORS[e.category] || '#64748b') + '"></span>' +
+          '<div><div class="exp-title">' + esc(e.desc) + '</div>' +
+          '<div class="exp-meta">' + esc(e.date) + ' · ' + esc(mName) + '付款 · ' + e.participants.length + ' 人参与 · ' + modeLabel(e.mode) + '</div></div>' +
+        '</div>' +
+        '<div class="exp-right"><div class="exp-amount' + (refunded ? ' refunded' : '') + '">' + fmt(e.amount) + '</div>' + statusBadge + '</div>' +
+        '<details class="shares"><summary>分摊明细</summary><div class="share-grid">' + shareChips + '</div></details>' +
+        '</div>';
+    }).join('');
+
+    return renderSummary(ledger) +
+      '<div class="section" data-req="FR-08">' +
+        '<div class="section-head"><div><h3>账本流水</h3><p>参与者：' + esc(ledger.members.map(function (m) { return m.name; }).join('、')) + '</p></div>' +
+        '<button class="btn secondary small" type="button" data-action="open-add">记一笔</button></div>' +
+        (rows || '<div class="empty">还没有流水，点“记一笔”开始。</div>') +
+      '</div>';
+  }
+
+  function renderStats(ledger) {
+    const active = activeExpenses(ledger);
+    const total = monthTotal(ledger);
+    const byCategory = {};
+    active.forEach(function (e) {
+      byCategory[e.category] = (byCategory[e.category] || 0) + e.amount;
+    });
+    const maxCat = Math.max.apply(null, Object.keys(byCategory).map(function (k) { return byCategory[k]; }).concat([1]));
+    const bars = Object.keys(byCategory).sort(function (a, b) { return byCategory[b] - byCategory[a]; }).map(function (cat) {
+      const pct = Math.round(byCategory[cat] / maxCat * 100);
+      return '<div class="bar-row">' +
+        '<span class="bar-label">' + esc(cat) + '</span>' +
+        '<span class="bar-track"><span class="bar-fill" style="width:' + pct + '%;background:' + (CATEGORY_COLORS[cat] || '#64748b') + '"></span></span>' +
+        '<span class="bar-value">' + fmt(byCategory[cat]) + '</span>' +
+        '</div>';
+    }).join('') || '<div class="empty">暂无分类数据</div>';
+
+    const bal = balances(ledger);
+    const memberRows = ledger.members.map(function (m) {
+      const paid = active.filter(function (e) { return e.payer === m.id; }).reduce(function (s, e) { return s + e.amount; }, 0);
+      const share = active.reduce(function (s, e) { return s + (e.shares[m.id] || 0); }, 0);
+      const net = bal[m.id] || 0;
+      return '<tr><td>' + esc(m.name) + '</td><td class="num">' + fmt(paid) + '</td><td class="num">' + fmt(share) + '</td>' +
+        '<td class="num ' + (net > 0 ? 'pos' : net < 0 ? 'neg' : '') + '">' + fmtSigned(net) + '</td></tr>';
+    }).join('');
+
+    const budget = ledger.budget;
+    const usedPct = budget > 0 ? Math.min(100, Math.round(total / budget * 100)) : 0;
+    const budgetClass = usedPct >= 100 ? ' danger' : usedPct >= 80 ? ' warn' : '';
+    const budgetHtml = budget > 0 ?
+      '<div class="budget-top"><span class="hint">本月已用 ' + fmt(total) + '</span><strong>' + fmt(budget) + '</strong></div>' +
+      '<div class="progress' + budgetClass + '"><div style="width:' + usedPct + '%"></div></div>' +
+      '<div class="hint" style="margin-top:8px">' + usedPct + '% · ' + (usedPct >= 100 ? '已超支，提醒 Owner/Admin' : usedPct >= 80 ? '达到 80% 提醒阈值' : '未达到提醒阈值') + '</div>'
+      : '<div class="empty">未设置共享预算</div>';
+
+    return '<div class="grid-cards">' +
+      '<div class="card stat-card"><div class="label">本月总支出</div><div class="value">' + fmt(total) + '</div><div class="hint">不含已退款记录</div></div>' +
+      '<div class="card stat-card"><div class="label">有效流水</div><div class="value">' + active.length + ' 笔</div><div class="hint">已退款 ' + (ledger.expenses.length - active.length) + ' 笔</div></div>' +
+      '<div class="card stat-card"><div class="label">参与成员</div><div class="value">' + ledger.members.length + ' 人</div><div class="hint">最多支持 50 人</div></div>' +
+      '<div class="card stat-card"><div class="label">结算状态</div><div class="value">' + (settlements(bal).length === 0 ? '已结清' : settlements(bal).length + ' 笔待结') + '</div><div class="hint">贪心方案</div></div>' +
+      '</div>' +
+      '<div class="stats-grid">' +
+        '<div class="section" data-req="FR-15" style="margin-top:0">' +
+          '<div class="section-head"><div><h3>分类支出</h3><p>按当前账本全部有效流水统计</p></div></div>' + bars +
+        '</div>' +
+        '<div class="section" data-req="FR-16" style="margin-top:0">' +
+          '<div class="section-head"><div><h3>共享预算</h3><p>Owner/Admin 可设置</p></div></div>' + budgetHtml +
+        '</div>' +
+      '</div>' +
+      '<div class="section" data-req="FR-15">' +
+        '<div class="section-head"><div><h3>成员收支</h3><p>已付 − 应付 = 净额</p></div></div>' +
+        '<table class="table"><thead><tr><th>成员</th><th class="num">已付</th><th class="num">应付</th><th class="num">净额</th></tr></thead><tbody>' + memberRows + '</tbody></table>' +
+      '</div>';
+  }
+
+  function renderSettle(ledger) {
+    const bal = balances(ledger);
+    const plan = settlements(bal);
+    const settledKey = state.settled[ledger.id] || {};
+    const balanceCards = ledger.members.map(function (m) {
+      const value = bal[m.id] || 0;
+      const cls = value > 0 ? 'pos' : value < 0 ? 'neg' : '';
+      const tag = value > 0 ? '应收（别人欠我）' : value < 0 ? '应付（我欠别人）' : '已平';
+      return '<div class="balance-card"><div class="person">' + esc(m.name) + '</div><div class="amount ' + cls + '">' + fmtSigned(value) + '</div><div class="tag">' + tag + '</div></div>';
+    }).join('');
+
+    const transferRows = plan.map(function (t) {
+      const key = t.from + '->' + t.to;
+      const done = !!settledKey[key];
+      return '<div class="transfer-row" data-req="FR-14">' +
+        '<div class="transfer-main"><span>' + esc(memberName(ledger, t.from)) + '</span><span class="arrow">→</span><span>' + esc(memberName(ledger, t.to)) + '</span>' +
+        '<span class="transfer-amount">' + fmt(t.amount) + '</span><span class="transfer-note">' + (done ? '已标记结清' : '待转账') + '</span></div>' +
+        '<button class="btn ' + (done ? 'done' : 'secondary') + ' small" type="button" data-action="settle" data-key="' + key + '"' + (done ? ' disabled' : '') + '>' + (done ? '已结清' : '标记已结清') + '</button>' +
+        '</div>';
+    }).join('');
+
+    return '<div class="section" data-req="FR-13" style="margin-top:0">' +
+      '<div class="section-head"><div><h3>成员净额</h3><p>净额 = 已付 − 应付；合计必须为 0</p></div>' +
+      '<button class="btn ghost small" type="button" data-action="reset-settle">重置演示状态</button></div>' +
+      '<div class="balance-grid">' + balanceCards + '</div>' +
+      '</div>' +
+      '<div class="section" data-req="FR-14">' +
+      '<div class="section-head"><div><h3>结算建议</h3><p>贪心方案，转账笔数 ≤ 成员数 − 1；不保证全局最优</p></div></div>' +
+      (transferRows || '<div class="empty">当前没有待结清余额。</div>') +
+      '<div class="hint" style="margin-top:12px">真实转账由用户在微信/支付宝完成。原型中“标记已结清”仅演示状态变更，不重新计算余额。</div>' +
+      '</div>';
+  }
+
+  function renderMembers(ledger) {
+    const rows = ledger.members.map(function (m) {
+      const roleText = m.role === 'owner' ? '创建者 Owner' : m.role === 'admin' ? '管理员 Admin' : '普通成员';
+      const roleBadge = m.role === 'owner' ? 'brand' : m.role === 'admin' ? 'ok' : '';
+      const avatarClass = m.role === 'owner' ? 'owner' : m.role === 'admin' ? 'admin' : '';
+      return '<div class="member-row" data-req="FR-06">' +
+        '<div class="member-main"><div class="avatar ' + avatarClass + '">' + esc(m.name.slice(0, 1)) + '</div>' +
+        '<div><div class="member-name">' + esc(m.name) + (m.id === ME && m.name !== '我' ? '（我）' : '') + '</div><div class="member-meta">加入于 2026-10-01</div></div></div>' +
+        '<span class="badge ' + roleBadge + '">' + roleText + '</span>' +
+        '</div>';
+    }).join('');
+
+    return '<div class="section" data-req="FR-06" style="margin-top:0">' +
+      '<div class="section-head"><div><h3>账本成员</h3><p>' + ledger.members.length + ' / 50 人</p></div>' +
+      '<button class="btn secondary small" type="button" data-action="invite">邀请成员</button></div>' +
+      rows +
+      '<div class="perm-note">' +
+      '权限说明：普通成员可记账、查看流水、发起自己记录的退款；管理员可邀请成员、移除普通成员、编辑任意记录、设置预算、导出全账本、查看审计日志；创建者可设置/撤销管理员、转让创建者、归档或删除账本。<br>' +
+      '管理员不能移除其他管理员或创建者；创建者不能直接退出，需先转让或删除账本。' +
+      '</div>' +
+      '</div>';
+  }
+
+  /* ---------- 模态框 ---------- */
+  function openModal(id) {
+    document.getElementById(id).hidden = false;
+  }
+  function closeModal(id) {
+    document.getElementById(id).hidden = true;
+  }
+
+  function openExpenseModal() {
+    const ledger = currentLedger();
+    document.getElementById('formError').textContent = '';
+    document.getElementById('expenseForm').reset();
+    document.getElementById('date').value = '2026-10-20';
+    document.getElementById('amount').value = '';
+    document.getElementById('description').value = '';
+    document.getElementById('splitMode').value = 'equal';
+
+    const payer = document.getElementById('payer');
+    payer.innerHTML = ledger.members.map(function (m) {
+      return '<option value="' + m.id + '"' + (m.id === ME ? ' selected' : '') + '>' + esc(m.name) + (m.id === ME && m.name !== '我' ? '（我）' : '') + '</option>';
+    }).join('');
+
+    const participants = document.getElementById('participantList');
+    participants.innerHTML = ledger.members.map(function (m) {
+      return '<label class="check-chip"><input type="checkbox" value="' + m.id + '" checked> ' + esc(m.name) + '</label>';
+    }).join('');
+
+    participants.querySelectorAll('input').forEach(function (input) {
+      input.addEventListener('change', renderSplitDetail);
+    });
+    payer.addEventListener('change', renderSplitDetail);
+    document.getElementById('splitMode').addEventListener('change', renderSplitDetail);
+    document.getElementById('amount').addEventListener('input', renderSplitDetail);
+
+    renderSplitDetail();
+    openModal('expenseModal');
+    setTimeout(function () { document.getElementById('amount').focus(); }, 30);
+  }
+
+  function selectedParticipants() {
+    const list = document.getElementById('participantList');
+    return Array.prototype.slice.call(list.querySelectorAll('input:checked')).map(function (i) { return i.value; });
+  }
+
+  function currentAmountCents() {
+    const value = parseFloat(document.getElementById('amount').value);
+    return Number.isFinite(value) ? Math.round(value * 100) : 0;
+  }
+
+  function renderSplitDetail() {
+    const ledger = currentLedger();
+    const box = document.getElementById('splitDetail');
+    const participants = selectedParticipants();
+    const payer = document.getElementById('payer').value;
+    const mode = document.getElementById('splitMode').value;
+    const amount = currentAmountCents();
+
+    if (!participants.length) {
+      box.innerHTML = '<div class="hint">至少选择 1 名参与人。</div>';
+      return;
+    }
+
+    if (mode === 'equal') {
+      if (amount <= 0) {
+        box.innerHTML = '<div class="hint">输入金额后显示分摊预览。当前 ' + participants.length + ' 人参与。</div>';
+        return;
+      }
+      const shares = splitEqual(amount, participants, payer);
+      box.innerHTML = '<div class="hint" style="margin-bottom:8px">均分给 ' + participants.length + ' 人，余数优先给付款人：</div>' +
+        '<div class="split-preview">' + participants.map(function (id) {
+          return '<span class="share-chip">' + esc(memberName(ledger, id)) + ' <b>' + fmt(shares[id]) + '</b></span>';
+        }).join('') + '</div>';
+      return;
+    }
+
+    if (mode === 'amount') {
+      const base = amount > 0 ? splitEqual(amount, participants, payer) : {};
+      box.innerHTML = '<div class="hint" style="margin-bottom:8px">为每位参与人填写金额（元），合计必须等于支出金额：</div>' +
+        participants.map(function (id) {
+          const val = base[id] ? (base[id] / 100).toFixed(2) : '';
+          return '<div class="split-input-row"><span>' + esc(memberName(ledger, id)) + '</span><input type="number" step="0.01" min="0.01" data-split-id="' + id + '" value="' + val + '"></div>';
+        }).join('') +
+        '<div class="hint" id="splitSumHint"></div>';
+      bindSplitInputs('amount');
+      updateSplitSum('amount');
+      return;
+    }
+
+    const n = participants.length;
+    const basePct = Math.floor(10000 / n) / 100;
+    const pcts = {};
+    participants.forEach(function (id, index) {
+      pcts[id] = index === 0 ? Math.round((100 - basePct * (n - 1)) * 100) / 100 : basePct;
+    });
+    box.innerHTML = '<div class="hint" style="margin-bottom:8px">为每位参与人填写比例（%），合计必须等于 100%：</div>' +
+      participants.map(function (id) {
+        return '<div class="split-input-row"><span>' + esc(memberName(ledger, id)) + '</span><input type="number" step="0.01" min="0.01" max="100" data-split-id="' + id + '" value="' + pcts[id].toFixed(2) + '"></div>';
+      }).join('') +
+      '<div class="hint" id="splitSumHint"></div>';
+    bindSplitInputs('percentage');
+    updateSplitSum('percentage');
+  }
+
+  function bindSplitInputs(mode) {
+    document.querySelectorAll('[data-split-id]').forEach(function (input) {
+      input.addEventListener('input', function () { updateSplitSum(mode); });
+    });
+  }
+
+  function updateSplitSum(mode) {
+    const hint = document.getElementById('splitSumHint');
+    if (!hint) return;
+    const inputs = Array.prototype.slice.call(document.querySelectorAll('[data-split-id]'));
+    let sum = 0;
+    inputs.forEach(function (i) { sum += parseFloat(i.value) || 0; });
+    if (mode === 'amount') {
+      const amount = currentAmountCents() / 100;
+      const diff = Math.round((sum - amount) * 100) / 100;
+      hint.textContent = '当前合计 ' + sum.toFixed(2) + ' 元，' + (Math.abs(diff) < 0.005 ? '与支出金额一致。' : '还差 ' + (-diff).toFixed(2) + ' 元。');
+      hint.style.color = Math.abs(diff) < 0.005 ? 'var(--ok)' : 'var(--danger)';
+    } else {
+      const diff = Math.round((sum - 100) * 100) / 100;
+      hint.textContent = '当前合计 ' + sum.toFixed(2) + '%，' + (Math.abs(diff) < 0.005 ? '符合 100%。' : (diff > 0 ? '超出 ' : '还差 ') + Math.abs(diff).toFixed(2) + '%。');
+      hint.style.color = Math.abs(diff) < 0.005 ? 'var(--ok)' : 'var(--danger)';
+    }
+  }
+
+  function submitExpense(event) {
+    event.preventDefault();
+    const ledger = currentLedger();
+    const error = document.getElementById('formError');
+    error.textContent = '';
+    const amount = currentAmountCents();
+    if (!amount || amount <= 0) { error.textContent = '金额必须大于 0，且最多两位小数。'; return; }
+    if (amount > 100000000) { error.textContent = '单笔金额不能超过 1,000,000 元。'; return; }
+
+    const payer = document.getElementById('payer').value;
+    const participants = selectedParticipants();
+    if (!participants.length) { error.textContent = '至少选择 1 名参与人。'; return; }
+    if (participants.indexOf(payer) === -1 && !memberMap(ledger)[payer]) { error.textContent = '付款人必须是账本成员。'; return; }
+
+    const dateValue = document.getElementById('date').value;
+    const today = new Date('2026-10-20T00:00:00');
+    const chosen = new Date(dateValue + 'T00:00:00');
+    if (!dateValue || isNaN(chosen.getTime())) { error.textContent = '请选择有效日期。'; return; }
+    if (chosen > today) { error.textContent = '支出日期不能晚于今天。'; return; }
+    const earliest = new Date(today.getTime() - 365 * 24 * 3600 * 1000);
+    if (chosen < earliest) { error.textContent = '最多补记 365 天内的支出。'; return; }
+
+    const mode = document.getElementById('splitMode').value;
+    let shares = null;
+
+    if (mode === 'equal') {
+      shares = splitEqual(amount, participants, payer);
+    } else if (mode === 'amount') {
+      const values = {};
+      let sum = 0;
+      const inputs = Array.prototype.slice.call(document.querySelectorAll('[data-split-id]'));
+      for (const input of inputs) {
+        const cents = Math.round((parseFloat(input.value) || 0) * 100);
+        if (cents <= 0) { error.textContent = '每位参与人的分摊金额必须大于 0。'; return; }
+        values[input.dataset.splitId] = cents;
+        sum += cents;
+      }
+      if (sum !== amount) { error.textContent = '分摊合计必须等于支出金额，当前差 ' + ((amount - sum) / 100).toFixed(2) + ' 元。'; return; }
+      shares = values;
+    } else {
+      const pcts = {};
+      let sum = 0;
+      const inputs = Array.prototype.slice.call(document.querySelectorAll('[data-split-id]'));
+      for (const input of inputs) {
+        const pct = parseFloat(input.value) || 0;
+        if (pct <= 0) { error.textContent = '每位参与人的分摊比例必须大于 0。'; return; }
+        pcts[input.dataset.splitId] = pct;
+        sum += pct;
+      }
+      if (Math.abs(sum - 100) > 0.005) { error.textContent = '分摊比例合计必须等于 100%，当前为 ' + sum.toFixed(2) + '%。'; return; }
+      shares = splitPercentage(amount, participants, payer, pcts);
+    }
+
+    const sumShares = Object.keys(shares).reduce(function (s, id) { return s + shares[id]; }, 0);
+    if (sumShares !== amount) { error.textContent = '内部分摊校验失败，请重试。'; return; }
+
+    const description = document.getElementById('description').value.trim() || '未命名支出';
+    const category = document.getElementById('category').value;
+    ledger.expenses.unshift({
+      id: Date.now(),
+      amount: amount,
+      category: category,
+      desc: description,
+      date: dateValue,
+      payer: payer,
+      participants: participants,
+      mode: mode,
+      shares: shares,
+      status: 'normal'
+    });
+
+    state.tab = 'flow';
+    closeModal('expenseModal');
+    renderAll();
+    toast('已记录，分摊合计校验通过');
+  }
+
+  function openInvite() {
+    const ledger = currentLedger();
+    document.getElementById('inviteCode').textContent = ledger.inviteCode;
+    document.getElementById('inviteLink').textContent = 'https://dazi.example/join/' + ledger.inviteCode;
+    document.getElementById('inviteMeta').textContent = '有效期至 ' + ledger.expires + ' · 可多人使用 · 当前 ' + ledger.members.length + '/50 人';
+    openModal('inviteModal');
+  }
+
+  function copyInvite() {
+    const text = 'https://dazi.example/join/' + currentLedger().inviteCode;
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(text).then(function () { toast('邀请链接已复制'); })
+        .catch(function () { toast('复制失败，请手动选择链接'); });
+    } else {
+      toast('原型环境不支持自动复制，请手动选择链接');
+    }
+  }
+
+  let toastTimer = null;
+  function toast(message) {
+    const el = document.getElementById('toast');
+    el.textContent = message;
+    el.hidden = false;
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(function () { el.hidden = true; }, 2200);
+  }
+
+  /* ---------- 事件 ---------- */
+  document.addEventListener('click', function (event) {
+    const actionEl = event.target.closest('[data-action]');
+    if (actionEl) {
+      const action = actionEl.dataset.action;
+      if (action === 'switch-ledger') {
+        state.currentLedgerId = actionEl.dataset.id;
+        state.tab = 'flow';
+        renderAll();
+        return;
+      }
+      if (action === 'open-add') { openExpenseModal(); return; }
+      if (action === 'invite') { openInvite(); return; }
+      if (action === 'settle') {
+        const ledger = currentLedger();
+        state.settled[ledger.id] = state.settled[ledger.id] || {};
+        state.settled[ledger.id][actionEl.dataset.key] = true;
+        renderContent();
+        toast('已标记结清（原型演示）');
+        return;
+      }
+      if (action === 'reset-settle') {
+        state.settled[currentLedger().id] = {};
+        renderContent();
+        toast('已重置演示状态');
+        return;
+      }
+    }
+
+    const tab = event.target.closest('[data-tab]');
+    if (tab) {
+      state.tab = tab.dataset.tab;
+      renderTabs();
+      renderContent();
+      return;
+    }
+
+    const closeEl = event.target.closest('[data-close]');
+    if (closeEl) {
+      closeModal(closeEl.dataset.close);
+      return;
+    }
+  });
+
+  document.getElementById('addBtn').addEventListener('click', openExpenseModal);
+  document.getElementById('inviteBtn').addEventListener('click', openInvite);
+  document.getElementById('copyInvite').addEventListener('click', copyInvite);
+  document.getElementById('expenseForm').addEventListener('submit', submitExpense);
+  document.getElementById('annotateBtn').addEventListener('click', function () {
+    state.annotate = !state.annotate;
+    document.body.classList.toggle('annotate', state.annotate);
+    this.classList.toggle('secondary', state.annotate);
+    this.classList.toggle('ghost', !state.annotate);
+    toast(state.annotate ? '需求标注已开启' : '需求标注已关闭');
+  });
+  document.addEventListener('keydown', function (event) {
+    if (event.key === 'Escape') {
+      document.querySelectorAll('.modal-backdrop').forEach(function (m) { m.hidden = true; });
+    }
+  });
+  document.querySelectorAll('.modal-backdrop').forEach(function (backdrop) {
+    backdrop.addEventListener('click', function (event) {
+      if (event.target === backdrop) backdrop.hidden = true;
+    });
+  });
+
+  renderAll();
+})();
+</script>
+</body>
+</html>
