@@ -1,0 +1,82 @@
+digraph UseCase {
+  graph [
+    rankdir=LR,
+    splines=true,
+    nodesep=0.28,
+    ranksep=0.55,
+    pad=0.25,
+    bgcolor="white",
+    fontname="Noto Sans CJK SC",
+    fontsize=11,
+    label="搭子账本 v4.0 用例图",
+    labelloc=t,
+    fontsize=20
+  ];
+  node [fontname="Noto Sans CJK SC", fontsize=10, color="#4f46e5"];
+  edge [fontname="Noto Sans CJK SC", fontsize=8, color="#64748b"];
+
+  Guest  [shape=box, style="rounded,filled", fillcolor="#eef2ff", color="#818cf8", label="访客"];
+  Member [shape=box, style="rounded,filled", fillcolor="#eef2ff", color="#818cf8", label="普通成员"];
+  Admin  [shape=box, style="rounded,filled", fillcolor="#ccfbf1", color="#14b8a6", label="管理员"];
+  Owner  [shape=box, style="rounded,filled", fillcolor="#ede9fe", color="#8b5cf6", label="创建者"];
+  System [shape=box, style="rounded,filled", fillcolor="#f1f5f9", color="#94a3b8", label="系统"];
+
+  subgraph cluster_system {
+    label="搭子账本系统";
+    style="rounded,dashed";
+    color="#94a3b8";
+    fontcolor="#475569";
+    fontsize=12;
+    margin=16;
+
+    UC01 [shape=ellipse, style=filled, fillcolor="#f8fafc", label="UC-01 注册/登录"];
+    UC02 [shape=ellipse, style=filled, fillcolor="#f8fafc", label="UC-02 创建账本"];
+    UC03 [shape=ellipse, style=filled, fillcolor="#f8fafc", label="UC-03 邀请成员"];
+    UC04 [shape=ellipse, style=filled, fillcolor="#f8fafc", label="UC-04 加入账本"];
+    UC05 [shape=ellipse, style=filled, fillcolor="#f8fafc", label="UC-05 管理成员与角色"];
+    UC06 [shape=ellipse, style=filled, fillcolor="#f8fafc", label="UC-06 主动退出账本"];
+    UC07 [shape=ellipse, style=filled, fillcolor="#f8fafc", label="UC-07 记录共同支出"];
+    UC08 [shape=ellipse, style=filled, fillcolor="#f8fafc", label="UC-08 设置分摊"];
+    UC09 [shape=ellipse, style=filled, fillcolor="#f8fafc", label="UC-09 编辑/删除支出"];
+    UC10 [shape=ellipse, style=filled, fillcolor="#f8fafc", label="UC-10 申请退款"];
+    UC11 [shape=ellipse, style=filled, fillcolor="#f8fafc", label="UC-11 查看流水与统计"];
+    UC12 [shape=ellipse, style=filled, fillcolor="#f8fafc", label="UC-12 生成结算方案"];
+    UC13 [shape=ellipse, style=filled, fillcolor="#f8fafc", label="UC-13 确认结清"];
+    UC14 [shape=ellipse, style=filled, fillcolor="#f8fafc", label="UC-14 设置共享预算"];
+    UC15 [shape=ellipse, style=filled, fillcolor="#f8fafc", label="UC-15 导出/备份"];
+    UC16 [shape=ellipse, style=filled, fillcolor="#f8fafc", label="UC-16 查看审计日志"];
+    UC17 [shape=ellipse, style=filled, fillcolor="#f8fafc", label="UC-17 注销账号"];
+  }
+
+  Guest  -> UC01;
+  Guest  -> UC04;
+  Member -> UC02;
+  Member -> UC06;
+  Member -> UC07;
+  Member -> UC09;
+  Member -> UC10;
+  Member -> UC11;
+  Member -> UC12;
+  Member -> UC13;
+  Member -> UC15;
+  Member -> UC17;
+  Admin  -> UC03;
+  Admin  -> UC05;
+  Admin  -> UC09;
+  Admin  -> UC10;
+  Admin  -> UC14;
+  Admin  -> UC15;
+  Admin  -> UC16;
+  Owner  -> UC05;
+  Owner  -> UC17;
+  System -> UC12 [style=dashed, arrowhead=open];
+  System -> UC13 [style=dashed, arrowhead=open];
+
+  Admin -> Member [style=dashed, arrowhead=onormal, color="#0d9488", label="泛化", constraint=false];
+  Owner -> Admin  [style=dashed, arrowhead=onormal, color="#7c3aed", label="泛化", constraint=false];
+
+  UC07 -> UC08 [style=dashed, color="#f59e0b", label="include"];
+  UC03 -> UC02 [style=dashed, color="#f59e0b", label="extend"];
+  UC13 -> UC06 [style=dashed, color="#f59e0b", label="extend"];
+  UC15 -> UC17 [style=dashed, color="#f59e0b", label="extend"];
+}
